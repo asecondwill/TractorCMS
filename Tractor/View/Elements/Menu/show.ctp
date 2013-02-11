@@ -10,7 +10,7 @@
 	$attribs="";
 
 	if (!empty($id)) $attribs .= "id = $id ";
-	if (!empty($id)) $attribs .= "class = $class ";
+	if (!empty($class)) $attribs .= "class = $class ";
 	
 	if (empty($level)) $level = 0;
 	if (empty($li)) $li = false;
