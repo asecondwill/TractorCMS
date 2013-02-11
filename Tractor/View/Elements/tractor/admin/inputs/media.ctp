@@ -18,7 +18,12 @@
 <tbody>
         <?php        
         
-        $selected_medias = explode(",", $this->data[$model][$field]);	        
+       if (!empty($this->request->data)){        
+         $selected_medias = explode(",", $this->data[$model][$field]);	         
+        }else{
+           $selected_medias = array();
+        }
+        
 
         foreach($selected_medias as $media_item){  
                
