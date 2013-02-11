@@ -1,7 +1,7 @@
 <?php
 $selected_id = "none";
 if (isset($selected_item)) $selected_id = $selected_item['MenuItem']['id'];
-$this->Html->script(array('jquery.js','jquery.tablednd_0_5.js'), false);
+echo $this->Html->script(array('jquery.js','jquery.tablednd_0_5.js'));
 
 $this->Paginator->options(array('url' => $this->passedArgs));
    
