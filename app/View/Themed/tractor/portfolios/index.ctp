@@ -1,4 +1,4 @@
-<?php  $paginator->options(array('url' => $this->passedArgs))  ?>
+<?php  $this->Paginator->options(array('url' => $this->passedArgs))  ?>
 
 
 <div  class=" container_12 clearfix">	
@@ -28,7 +28,7 @@
 		}
 		
 		echo 	"<h1><a href='/portfolios/view/{$portfolio['Content']['slug']}'>{$portfolio['Portfolio']['title']}</a></h1>
-			 	<p class='meta'> by Will on {$time->niceShort($portfolio['Portfolio']['published'])} </p>";
+			 	<p class='meta'> by Will on {$this->Time->niceShort($portfolio['Portfolio']['published'])} </p>";
 			 
 			
 $heros = explode(",",$portfolio['Portfolio']['hero']);
@@ -43,7 +43,7 @@ foreach($heros as $key => $item)
 $heros_str = implode($heros);
 $heros = explode(",", $heros_str);
 
-echo   $image->resize("/../media/" . $heros[0] , 560, 400, true,array('border'=>'0', 'alt'=> $heros[0]));
+echo   $this->Image->resize("/../media/" . $heros[0] , 560, 400, true,array('border'=>'0', 'alt'=> $heros[0]));
 			 	
 			 echo "	{$portfolio['Portfolio']['excerpt']} 
 			 	<p><a class='more' href='/portfolios/view/{$portfolio['Content']['slug']}'>Read More</a>

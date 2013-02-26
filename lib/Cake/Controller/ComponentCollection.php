@@ -4,12 +4,13 @@
  * and constructing component class objects.
  *
  * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
- * Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
+ * For full copyright and license information, please see the LICENSE.txt
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright     Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  * @link          http://cakephp.org CakePHP(tm) Project
  * @package       Cake.Controller
  * @since         CakePHP(tm) v 2.0
@@ -18,8 +19,15 @@
 
 App::uses('ObjectCollection', 'Utility');
 App::uses('Component', 'Controller');
+App::uses('CakeEventListener', 'Event');
 
-class ComponentCollection extends ObjectCollection {
+/**
+ * Components collection is used as a registry for loaded components and handles loading
+ * and constructing component class objects.
+ *
+ * @package       Cake.Controller
+ */
+class ComponentCollection extends ObjectCollection implements CakeEventListener {
 
 /**
  * The controller that this collection was initialized with.
@@ -49,16 +57,16 @@ class ComponentCollection extends ObjectCollection {
 /**
  * Get the controller associated with the collection.
  *
- * @return Controller.
+ * @return Controller Controller instance
  */
 	public function getController() {
 		return $this->_Controller;
 	}
 
 /**
- * Loads/constructs a component.  Will return the instance in the registry if it already exists.
+ * Loads/constructs a component. Will return the instance in the registry if it already exists.
  * You can use `$settings['enabled'] = false` to disable callbacks on a component when loading it.
- * Callbacks default to on.  Disabled component methods work as normal, only callbacks are disabled.
+ * Callbacks default to on. Disabled component methods work as normal, only callbacks are disabled.
  *
  * You can alias your component as an existing component by setting the 'className' key, i.e.,
  * {{{
@@ -91,15 +99,32 @@ class ComponentCollection extends ObjectCollection {
 		App::uses($componentClass, $plugin . 'Controller/Component');
 		if (!class_exists($componentClass)) {
 			throw new MissingComponentException(array(
-				'class' => $componentClass
+				'class' => $componentClass,
+				'plugin' => substr($plugin, 0, -1)
 			));
 		}
 		$this->_loaded[$alias] = new $componentClass($this, $settings);
 		$enable = isset($settings['enabled']) ? $settings['enabled'] : true;
-		if ($enable === true) {
-			$this->_enabled[] = $alias;
+		if ($enable) {
+			$this->enable($alias);
 		}
 		return $this->_loaded[$alias];
+	}
+
+/**
+ * Returns the implemented events that will get routed to the trigger function
+ * in order to dispatch them separately on each component
+ *
+ * @return array
+ */
+	public function implementedEvents() {
+		return array(
+			'Controller.initialize' => array('callable' => 'trigger'),
+			'Controller.startup' => array('callable' => 'trigger'),
+			'Controller.beforeRender' => array('callable' => 'trigger'),
+			'Controller.beforeRedirect' => array('callable' => 'trigger'),
+			'Controller.shutdown' => array('callable' => 'trigger'),
+		);
 	}
 
 }

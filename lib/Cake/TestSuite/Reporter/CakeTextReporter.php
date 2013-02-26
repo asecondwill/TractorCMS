@@ -4,22 +4,20 @@
  *
  * PHP 5
  *
- * CakePHP(tm) Tests <http://book.cakephp.org/view/1196/Testing>
- * Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * CakePHP(tm) Tests <http://book.cakephp.org/2.0/en/development/testing.html>
+ * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
+ * For full copyright and license information, please see the LICENSE.txt
  * Redistributions of files must retain the above copyright notice
  *
- * @copyright     Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  * @link          http://cakephp.org CakePHP(tm) Project
  * @since         CakePHP(tm) v 1.3
  * @license       MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
-
 App::uses('CakeBaseReporter', 'TestSuite/Reporter');
 App::uses('TextCoverageReport', 'TestSuite/Coverage');
-
-PHP_CodeCoverage_Filter::getInstance()->addFileToBlacklist(__FILE__, 'DEFAULT');
 
 /**
  * CakeTextReporter contains reporting features used for plain text based output
@@ -51,7 +49,7 @@ class CakeTextReporter extends CakeBaseReporter {
 /**
  * Paints a failing test.
  *
- * @param $message PHPUnit_Framework_AssertionFailedError $message Failure object displayed in
+ * @param PHPUnit_Framework_AssertionFailedError $message Failure object displayed in
  *   the context of the other tests.
  * @return void
  */
@@ -61,7 +59,7 @@ class CakeTextReporter extends CakeBaseReporter {
 		$context = $context[2];
 
 		printf(
-			"FAIL on line %s\n%s in\n%s %s()\n\n", 
+			"FAIL on line %s\n%s in\n%s %s()\n\n",
 			$context['line'], $message->toString(), $context['file'], $realContext['function']
 		);
 	}
@@ -74,20 +72,20 @@ class CakeTextReporter extends CakeBaseReporter {
  * @return void
  */
 	public function paintFooter($result) {
-		if ($result->failureCount() + $result->errorCount() == 0) {
-			echo "\nOK\n";
-		} else {
+		if ($result->failureCount() + $result->errorCount()) {
 			echo "FAILURES!!!\n";
+		} else {
+			echo "\nOK\n";
 		}
 
-		echo "Test cases run: " . $result->count() . 
+		echo "Test cases run: " . $result->count() .
 			"/" . ($result->count() - $result->skippedCount()) .
 			', Passes: ' . $this->numAssertions .
 			', Failures: ' . $result->failureCount() .
 			', Exceptions: ' . $result->errorCount() . "\n";
 
 		echo 'Time: ' . $result->time() . " seconds\n";
-        echo 'Peak memory: ' . number_format(memory_get_peak_usage()) . " bytes\n";
+		echo 'Peak memory: ' . number_format(memory_get_peak_usage()) . " bytes\n";
 
 		if (isset($this->params['codeCoverage']) && $this->params['codeCoverage']) {
 			$coverage = $result->getCodeCoverage()->getSummary();
@@ -98,7 +96,6 @@ class CakeTextReporter extends CakeBaseReporter {
 /**
  * Paints the title only.
  *
- * @param string $test_name Name class of test.
  * @return void
  */
 	public function paintHeader() {
@@ -114,8 +111,8 @@ class CakeTextReporter extends CakeBaseReporter {
  */
 	public function paintException($exception) {
 		$message = 'Unexpected exception of type [' . get_class($exception) .
-			'] with message ['. $exception->getMessage() .
-			'] in ['. $exception->getFile() .
+			'] with message [' . $exception->getMessage() .
+			'] in [' . $exception->getFile() .
 			' line ' . $exception->getLine() . ']';
 		echo $message . "\n\n";
 	}
@@ -168,8 +165,8 @@ class CakeTextReporter extends CakeBaseReporter {
 			echo $buffer;
 		}
 
-		foreach ($testCases as $testCaseFile => $testCase) {
-			$buffer .= $_SERVER['SERVER_NAME'] . $this->baseUrl() ."?case=" . $testCase . "&output=text"."\n";
+		foreach ($testCases as $testCase) {
+			$buffer .= $_SERVER['SERVER_NAME'] . $this->baseUrl() . "?case=" . $testCase . "&output=text\n";
 		}
 
 		$buffer .= "\n";
@@ -180,7 +177,7 @@ class CakeTextReporter extends CakeBaseReporter {
  * Generates a Text summary of the coverage data.
  *
  * @param array $coverage Array of coverage data.
- * @return string
+ * @return void
  */
 	public function paintCoverage($coverage) {
 		$reporter = new TextCoverageReport($coverage, $this);

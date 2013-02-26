@@ -3,14 +3,15 @@
  * DigestAuthenticateTest file
  *
  * PHP 5
- * 
+ *
  * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
- * Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
+ * For full copyright and license information, please see the LICENSE.txt
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright     Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  * @link          http://cakephp.org CakePHP(tm) Project
  * @package       Cake.Test.Case.Controller.Component.Auth
  * @since         CakePHP(tm) v 2.0
@@ -22,7 +23,7 @@ App::uses('AppModel', 'Model');
 App::uses('CakeRequest', 'Network');
 App::uses('CakeResponse', 'Network');
 
-require_once  CAKE . 'Test' . DS . 'Case' . DS . 'Model' . DS . 'models.php';
+require_once CAKE . 'Test' . DS . 'Case' . DS . 'Model' . DS . 'models.php';
 
 /**
  * Test case for DigestAuthentication
@@ -59,7 +60,7 @@ class DigestAuthenticateTest extends CakeTestCase {
 	}
 
 /**
- * teardown
+ * tearDown
  *
  * @return void
  */
@@ -160,7 +161,7 @@ DIGEST;
 	}
 
 /**
- * test authenticate sucesss
+ * test authenticate success
  *
  * @return void
  */
@@ -290,7 +291,7 @@ DIGEST;
 			'opaque' => '5ccc069c403ebaf9f0171e9517f40e41'
 		);
 		$result = $this->auth->parseAuthData($digest);
-		$this->assertIdentical($expected, $result);
+		$this->assertSame($expected, $result);
 	}
 
 /**

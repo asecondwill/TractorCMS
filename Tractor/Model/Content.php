@@ -2,7 +2,7 @@
 class Content extends AppModel {	
 	var $actsAs = array('Containable', 'Tree', 'SluggableTree' => array('separator' => '-', 'overwrite' => false));
 	
-	function afterSave(){
+	public function afterSave($created) {
 		Cache::delete('contents'); 				   
 		$contents  = $this->find('all');
 		Cache::write('contents', $contents);
@@ -19,7 +19,7 @@ class Content extends AppModel {
 		
 	}
 		
-	var $belongsTo = array(
+	public $belongsTo = array(
 			/*
 				'CalendarEvent'=>array(
 					'className'		=>	'Calendar.CalendarEvent',

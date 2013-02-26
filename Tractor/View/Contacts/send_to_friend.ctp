@@ -1,8 +1,8 @@
 <?php
-if (empty($this->data['Message']['referer'])){
+if (empty($this->request->data['Message']['referer'])){
 	$referer = $_SERVER['HTTP_REFERER'];
 }else{
-	$referer = $this->data['Message']['referer'];
+	$referer = $this->request->data['Message']['referer'];
 }
 ?>
 <section class="page clearfix">

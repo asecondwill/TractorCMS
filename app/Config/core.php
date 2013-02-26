@@ -54,6 +54,7 @@
 		'trace' => true
 	));
 
+
 /**
  * Configure the Exception handler used for uncaught exceptions.  By default,
  * ErrorHandler::handleException() is used. It will display a HTML page for the exception, and
@@ -133,7 +134,7 @@
  * Defines the default error type when using the log() function. Used for
  * differentiating error logging and debugging. Currently PHP supports LOG_DEBUG.
  */
-	define('LOG_ERROR', 2);
+	define('LOG_ERROR', LOG_DEBUG );
 
 /**
  * Session configuration.
@@ -185,12 +186,12 @@
 /**
  * A random string used in security hashing methods.
  */
-	Configure::write('Security.salt', '52c7488631d06b90e7e68a5a8785c884f79de692');
+	Configure::write('Security.salt', 'e66a12a9b03bf18f59e1e4957f7d466eab6e9472');
 
 /**
  * A random numeric string (digits only) used to encrypt/decrypt strings.
  */
-	Configure::write('Security.cipherSeed', '125313665677894589');
+	Configure::write('Security.cipherSeed', '13799167441327229965');
 
 /**
  * Apply timestamps with the last modified time to static assets (js, css, images).

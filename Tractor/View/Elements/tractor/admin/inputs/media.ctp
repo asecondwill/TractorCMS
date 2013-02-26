@@ -19,7 +19,7 @@
         <?php        
         
        if (!empty($this->request->data)){        
-         $selected_medias = explode(",", $this->data[$model][$field]);	         
+         $selected_medias = explode(",", $this->request->data[$model][$field]);	         
         }else{
            $selected_medias = array();
         }

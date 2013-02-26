@@ -20,7 +20,7 @@
 		
 		echo "<h3>Extra's</h3>";
 		echo $this->Form->input('external');
-		echo $tractorInputs->selectImage($menuItem['MenuItem']['Image'], 'png', 'Image', 'MenuItem');
+		echo $this->TractorInputs->selectImage($menuItem['MenuItem']['Image'], 'png', 'Image', 'MenuItem');
 
 		
 			?>

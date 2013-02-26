@@ -138,7 +138,7 @@ $(document).ready(function() {
 		
 		<h4>Adding a menu to content</h4>
 		<div>
-			Use short codes to add a menu to a content area that is being proccessed by  $layout->filter
+			Use short codes to add a menu to a content area that is being proccessed by  $this->Layout->filter
 			<code> [element:Menu/show name=<?php echo $menu['Menu']['name']?> after= / level=0 li=false] </code>
 		</div>
 			

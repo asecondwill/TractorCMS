@@ -9,7 +9,7 @@
 			
 
 			<ul class="context-menu">
-			<li><a href='<? echo $this->here ; ?>'>Events</a>
+			<li><a href='<? echo $this->request->here ; ?>'>Events</a>
 			<?php
 //				debug($event_categories);
 				
@@ -18,7 +18,7 @@
 				
 				echo $this->mTree->context($event_categories);
 				
-				//echo $menu->setup($event_categories, array('selected' => $this->here, 'type' => 'context', 'menuClass' => 'context-menu'));
+				//echo $this->Menu->setup($event_categories, array('selected' => $this->request->here, 'type' => 'context', 'menuClass' => 'context-menu'));
 			 ?>
 			 </li>
 			 </ul>

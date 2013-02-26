@@ -5,12 +5,13 @@
  * PHP 5
  *
  * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
- * Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
+ * For full copyright and license information, please see the LICENSE.txt
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright     Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  * @link          http://cakephp.org CakePHP(tm) Project
  * @package       Cake.Controller.Component
  * @since         CakePHP(tm) v 1.2.0.3467
@@ -93,8 +94,8 @@ class EmailComponent extends Component {
 	public $bcc = array();
 
 /**
- * The date to put in the Date: header.  This should be a date
- * conformant with the RFC2822 standard.  Leave null, to have
+ * The date to put in the Date: header. This should be a date
+ * conforming with the RFC2822 standard. Leave null, to have
  * today's date generated.
  *
  * @var string
@@ -198,7 +199,7 @@ class EmailComponent extends Component {
 	public $xMailer = 'CakePHP Email Component';
 
 /**
- * The list of paths to search if an attachment isnt absolute
+ * The list of paths to search if an attachment isn't absolute
  *
  * @var array
  */
@@ -239,7 +240,7 @@ class EmailComponent extends Component {
  * it be handled by sendmail (or similar) or a string
  * to completely override the Message-ID.
  *
- * If you are sending Email from a shell, be sure to set this value.  As you
+ * If you are sending Email from a shell, be sure to set this value. As you
  * could encounter delivery issues if you do not.
  *
  * @var mixed
@@ -270,7 +271,7 @@ class EmailComponent extends Component {
  * @param Controller $controller Instantiating controller
  * @return void
  */
-	public function initialize($controller) {
+	public function initialize(Controller $controller) {
 		if (Configure::read('App.encoding') !== null) {
 			$this->charset = Configure::read('App.encoding');
 		}
@@ -279,7 +280,7 @@ class EmailComponent extends Component {
 /**
  * Send an email using the specified content, template and layout
  *
- * @param mixed $content Either an array of text lines, or a string with contents
+ * @param string|array $content Either an array of text lines, or a string with contents
  *  If you are rendering a template this variable will be sent to the templates as `$content`
  * @param string $template Template to use when sending email
  * @param string $layout Layout to use to enclose email body
@@ -288,6 +289,7 @@ class EmailComponent extends Component {
 	public function send($content = null, $template = null, $layout = null) {
 		$lib = new CakeEmail();
 		$lib->charset = $this->charset;
+		$lib->headerCharset = $this->charset;
 
 		$lib->from($this->_formatAddresses((array)$this->from));
 		if (!empty($this->to)) {
@@ -305,7 +307,7 @@ class EmailComponent extends Component {
 		if (!empty($this->return)) {
 			$lib->returnPath($this->_formatAddresses((array)$this->return));
 		}
-		if (!empty($readReceipt)) {
+		if (!empty($this->readReceipt)) {
 			$lib->readReceipt($this->_formatAddresses((array)$this->readReceipt));
 		}
 
@@ -316,7 +318,7 @@ class EmailComponent extends Component {
 		foreach ($this->headers as $key => $value) {
 			$headers['X-' . $key] = $value;
 		}
-		if ($this->date != false) {
+		if ($this->date) {
 			$headers['Date'] = $this->date;
 		}
 		$lib->setHeaders($headers);
@@ -379,6 +381,7 @@ class EmailComponent extends Component {
 		$this->htmlMessage = null;
 		$this->textMessage = null;
 		$this->messageId = true;
+		$this->delivery = 'mail';
 	}
 
 /**
@@ -420,31 +423,6 @@ class EmailComponent extends Component {
 	}
 
 /**
- * Encode the specified string using the current charset
- *
- * @param string $subject String to encode
- * @return string Encoded string
- */
-	protected function _encode($subject) {
-		$subject = $this->_strip($subject);
-
-		$nl = "\r\n";
-		if ($this->delivery == 'mail') {
-			$nl = '';
-		}
-		$internalEncoding = function_exists('mb_internal_encoding');
-		if ($internalEncoding) {
-			$restore = mb_internal_encoding();
-			mb_internal_encoding($this->charset);
-		}
-		$return = mb_encode_mimeheader($subject, $this->charset, 'B', $nl);
-		if ($internalEncoding) {
-			mb_internal_encoding($restore);
-		}
-		return $return;
-	}
-
-/**
  * Format addresses to be an array with email as key and alias as value
  *
  * @param array $addresses
@@ -454,7 +432,7 @@ class EmailComponent extends Component {
 		$formatted = array();
 		foreach ($addresses as $address) {
 			if (preg_match('/((.*))?\s?<(.+)>/', $address, $matches) && !empty($matches[2])) {
-				$formatted[$this->_strip($matches[3])] = $this->_encode($matches[2]);
+				$formatted[$this->_strip($matches[3])] = $matches[2];
 			} else {
 				$address = $this->_strip($address);
 				$formatted[$address] = $address;
@@ -465,14 +443,14 @@ class EmailComponent extends Component {
 
 /**
  * Remove certain elements (such as bcc:, to:, %0a) from given value.
- * Helps prevent header injection / mainipulation on user content.
+ * Helps prevent header injection / manipulation on user content.
  *
  * @param string $value Value to strip
  * @param boolean $message Set to true to indicate main message content
  * @return string Stripped value
  */
 	protected function _strip($value, $message = false) {
-		$search  = '%0a|%0d|Content-(?:Type|Transfer-Encoding)\:';
+		$search = '%0a|%0d|Content-(?:Type|Transfer-Encoding)\:';
 		$search .= '|charset\=|mime-version\:|multipart/mixed|(?:[^a-z]to|b?cc)\:.*';
 
 		if ($message !== true) {

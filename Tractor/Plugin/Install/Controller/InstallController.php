@@ -1,8 +1,8 @@
 <?php
-
+App::uses('Security', 'Utility');
 class InstallController extends Controller {
 	public $uses = null;
-	public $components = array('Session');
+	public $components = array('Session','Auth');
 
     public $defaultConfig = array(
         'name' => 'default',

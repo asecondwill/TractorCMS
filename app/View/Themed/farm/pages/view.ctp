@@ -1,6 +1,6 @@
 <div class='container_12'>
   <div class="grid_3 alpha">
-  <?php	echo $menu->setup($contents, array('type'=>'context', 'modelName'=>'Content', 'title'=>'title', 'depth' =>1, 'slugUrl' =>'path',  'selected' => $this->here)); 
+  <?php	echo $this->Menu->setup($contents, array('type'=>'context', 'modelName'=>'Content', 'title'=>'title', 'depth' =>1, 'slugUrl' =>'path',  'selected' => $this->request->here)); 
 		?>
     <?php echo $this->element('mailchimp'); ?>
     

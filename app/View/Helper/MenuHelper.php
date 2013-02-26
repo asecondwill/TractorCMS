@@ -106,10 +106,10 @@
  * /about/vacancies
  * 
  * In a view / element to generate complete menu
- * echo $menu->setup($menu_data, array('selected' => $this->here));
+ * echo $this->Menu->setup($menu_data, array('selected' => $this->request->here));
  * 
  * In a view / element to generate a context menu from the same data, set the class of the parent UL
- * echo $menu->setup($menu_data, array('selected' => $this->here, 'type' => 'context', 'menuClass' => 'context-menu'));
+ * echo $this->Menu->setup($menu_data, array('selected' => $this->request->here, 'type' => 'context', 'menuClass' => 'context-menu'));
  * 
  * 
  * In a view / element to generate a sitemap from different data, let the helper know to use the 'Sitemap' model rather than the default 'Article' model and set the parent UL class.

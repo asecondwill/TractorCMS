@@ -77,14 +77,14 @@ $(document).ready(function() {
 					<?php //echo $media['Element']['image']; 
 					
 					if ($media['Media']['type']=='jpg' or $media['Media']['type']=='png' or $media['Media']['type']=='gif'){
-						 echo  $image->resize("/../media/" . $media['Media']['filename'] , 60, 60, true,array('width'=>'80', 'border'=>'0', 'title' => $media['Media']['filename'], 'alt'=>$media['Media']['filename']));
+						 echo  $this->Image->resize("/../media/" . $media['Media']['filename'] , 60, 60, true,array('width'=>'80', 'border'=>'0', 'title' => $media['Media']['filename'], 'alt'=>$media['Media']['filename']));
 					
 					 }
 					?>
 				</td>
 				<!--
 				<td>
-					<?php echo $time->niceShort($media['Media']['modified']); ?>
+					<?php echo $this->Time->niceShort($media['Media']['modified']); ?>
 				</td>
 				-->						
 				<td class="actions">
@@ -124,7 +124,7 @@ $(document).ready(function() {
 				<td class="drag-handle"></td>
 				<td>
 					<?php //echo $media['Element']['image']; 
-					 echo   $image->resize("/../media/" . $media['Media']['filename'] , 60, 60, true,array('width'=>'80', 'border'=>'0', 'title' => $media['Media']['filename'], 'alt'=>$media['Media']['filename']));
+					 echo   $this->Image->resize("/../media/" . $media['Media']['filename'] , 60, 60, true,array('width'=>'80', 'border'=>'0', 'title' => $media['Media']['filename'], 'alt'=>$media['Media']['filename']));
 					?>
 				</td>					
 				<td class="actions">

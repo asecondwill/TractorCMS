@@ -6,20 +6,25 @@
  * PHP5
  *
  * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
- * Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
+ * For full copyright and license information, please see the LICENSE.txt
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright     Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  * @link          http://cakephp.org CakePHP(tm) Project
  * @package       Cake.TestSuite.Coverage
  * @since         CakePHP(tm) v 2.0
  * @license       MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 
-PHP_CodeCoverage_Filter::getInstance()->addFileToBlacklist(__FILE__, 'DEFAULT');
-
+/**
+ * Abstract class for common CoverageReport methods.
+ * Provides several template methods for custom output.
+ *
+ * @package       Cake.TestSuite.Coverage
+ */
 abstract class BaseCoverageReport {
 
 /**
@@ -44,7 +49,7 @@ abstract class BaseCoverageReport {
 	public $pluginTest = false;
 
 /**
- * Array of test case file names.  Used to do basename() matching with
+ * Array of test case file names. Used to do basename() matching with
  * files that have coverage to decide which results to show on page load.
  *
  * @var array
@@ -60,7 +65,7 @@ abstract class BaseCoverageReport {
  */
 	public function __construct($coverage, CakeBaseReporter $reporter) {
 		$this->_rawCoverage = $coverage;
-		$this->setParams($reporter);
+		$this->_setParams($reporter);
 	}
 
 /**
@@ -69,7 +74,7 @@ abstract class BaseCoverageReport {
  * @param CakeBaseReporter $reporter Reporter to suck params out of.
  * @return void
  */
-	protected function setParams(CakeBaseReporter $reporter) {
+	protected function _setParams(CakeBaseReporter $reporter) {
 		if ($reporter->params['app']) {
 			$this->appTest = true;
 		}
@@ -106,7 +111,7 @@ abstract class BaseCoverageReport {
 	}
 
 /**
- * Filters the coverage data by path.  Files not in the provided path will be removed.
+ * Filters the coverage data by path. Files not in the provided path will be removed.
  *
  * @param string $path Path to filter files by.
  * @return array Array of coverage data for files that match the given path.
@@ -123,11 +128,16 @@ abstract class BaseCoverageReport {
 	}
 
 /**
- * Calculates how many lines are covered and what the total number of executable lines is
+ * Calculates how many lines are covered and what the total number of executable lines is.
+ *
+ * Handles both PHPUnit3.5 and 3.6 formats.
+ *
+ * 3.5 uses -1 for uncovered, and -2 for dead.
+ * 3.6 uses array() for uncovered and null for dead.
  *
  * @param array $fileLines
  * @param array $coverageData
- * @return array. Array of covered, total lines.
+ * @return array Array of covered, total lines.
  */
 	protected function _calculateCoveredLines($fileLines, $coverageData) {
 		$covered = $total = 0;
@@ -140,10 +150,10 @@ abstract class BaseCoverageReport {
 			if (!isset($coverageData[$lineno])) {
 				continue;
 			}
-			if (is_array($coverageData[$lineno])) {
+			if (is_array($coverageData[$lineno]) && !empty($coverageData[$lineno])) {
 				$covered++;
 				$total++;
-			} else if ($coverageData[$lineno] === -1) {
+			} elseif ($coverageData[$lineno] === -1 || $coverageData[$lineno] === array()) {
 				$total++;
 			}
 		}

@@ -4,7 +4,7 @@
 	foreach ($post['Tag'] as $tag){
 			$posted_in .= "<a href='/posts/index/{$tag['keyname']}'>{$tag['name']}</a>  ";
 	}
-	 echo " <h1>{$post['Post']['title']}</h1><p class='meta'> by Will on {$time->niceShort($post['Post']['published'])} ";
+	 echo " <h1>{$post['Post']['title']}</h1><p class='meta'> by Will on {$this->Time->niceShort($post['Post']['published'])} ";
 	
 	$geshi->showPlainTextButton = false;
 	

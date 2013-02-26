@@ -47,13 +47,13 @@
 	$contacted_in = substr($contacted_in,0,-4);
 	echo 	"<h3><a href='{$contact['Content']['path']}'>{$contact['Content']['title']}</a></h3>
 		 	<strong>Contacted in</strong>: $contacted_in
-		 	<strong>Published</strong>: {$time->niceShort($contact['Contact']['published'])}
+		 	<strong>Published</strong>: {$this->Time->niceShort($contact['Contact']['published'])}
 			<p>{$contact['Contact']['excerpt']}</p>
 			<p><a class='more' href='{$contact['Content']['path']}'>Read More</a>
 			";
 			
-			//echo $image->resize("/media/" . $contact['Contact']['hero'] , 80, 80, true,array('border'=>'0', 'alt'=> 'hero!'));
-			if ($contact['Contact']['hero'] != '') echo   $image->resize("/../media/" . $contact['Contact']['hero'] , 80, 80, true,array('border'=>'0', 'alt'=> $contact['Contact']['hero']));
+			//echo $this->Image->resize("/media/" . $contact['Contact']['hero'] , 80, 80, true,array('border'=>'0', 'alt'=> 'hero!'));
+			if ($contact['Contact']['hero'] != '') echo   $this->Image->resize("/../media/" . $contact['Contact']['hero'] , 80, 80, true,array('border'=>'0', 'alt'=> $contact['Contact']['hero']));
 	
 	?>
 	

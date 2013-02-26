@@ -26,7 +26,7 @@ $heros = explode(",", $heros_str);
 
 		echo "<figure>
 				<a href=''>
-					{$image->resize("/../media/" . $heros[0] , 250, 165, true,array('border'=>'0', 'alt'=> $heros[0]))}
+					{$this->Image->resize("/../media/" . $heros[0] , 250, 165, true,array('border'=>'0', 'alt'=> $heros[0]))}
 				</a></figure>";
 		
 	

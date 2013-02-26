@@ -7,12 +7,13 @@
  * PHP 5
  *
  * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
- * Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
+ * For full copyright and license information, please see the LICENSE.txt
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright     Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  * @link          http://cakephp.org CakePHP(tm) Project
  * @package       Cake.Controller
  * @since         Cake v 0.10.0.1076
@@ -125,7 +126,7 @@ class Scaffold {
 		$this->ScaffoldModel = $this->controller->{$this->modelClass};
 		$this->scaffoldTitle = Inflector::humanize(Inflector::underscore($this->viewPath));
 		$this->scaffoldActions = $controller->scaffold;
-		$title_for_layout = __d('cake_dev', 'Scaffold :: ') . Inflector::humanize($request->action) . ' :: ' . $this->scaffoldTitle;
+		$title = __d('cake', 'Scaffold :: ') . Inflector::humanize($request->action) . ' :: ' . $this->scaffoldTitle;
 		$modelClass = $this->controller->modelClass;
 		$primaryKey = $this->ScaffoldModel->primaryKey;
 		$displayField = $this->ScaffoldModel->displayField;
@@ -137,15 +138,16 @@ class Scaffold {
 		$associations = $this->_associations();
 
 		$this->controller->set(compact(
-			'title_for_layout', 'modelClass', 'primaryKey', 'displayField', 'singularVar', 'pluralVar',
+			'modelClass', 'primaryKey', 'displayField', 'singularVar', 'pluralVar',
 			'singularHumanName', 'pluralHumanName', 'scaffoldFields', 'associations'
 		));
+		$this->controller->set('title_for_layout', $title);
 
 		if ($this->controller->viewClass) {
 			$this->controller->viewClass = 'Scaffold';
 		}
 		$this->_validSession = (
-			isset($this->controller->Session) && $this->controller->Session->valid() != false
+			isset($this->controller->Session) && $this->controller->Session->valid()
 		);
 		$this->_scaffold($request);
 	}
@@ -163,7 +165,7 @@ class Scaffold {
 				$this->ScaffoldModel->id = $request->params['pass'][0];
 			}
 			if (!$this->ScaffoldModel->exists()) {
-				throw new NotFoundException(__d('cake_dev', 'Invalid %s', Inflector::humanize($this->modelKey)));
+				throw new NotFoundException(__d('cake', 'Invalid %s', Inflector::humanize($this->modelKey)));
 			}
 			$this->ScaffoldModel->recursive = 1;
 			$this->controller->request->data = $this->ScaffoldModel->read();
@@ -198,7 +200,7 @@ class Scaffold {
  * Renders an add or edit action for scaffolded model.
  *
  * @param string $action Action (add or edit)
- * @return mixed A rendered view with a form to edit or add a record in the Models database table
+ * @return void
  */
 	protected function _scaffoldForm($action = 'edit') {
 		$this->controller->viewVars['scaffoldFields'] = array_merge(
@@ -212,36 +214,36 @@ class Scaffold {
  * Saves or updates the scaffolded model.
  *
  * @param CakeRequest $request Request Object for scaffolding
- * @param string $action add or edt
+ * @param string $action add or edit
  * @return mixed Success on save/update, add/edit form if data is empty or error if save or update fails
  * @throws NotFoundException
  */
 	protected function _scaffoldSave(CakeRequest $request, $action = 'edit') {
 		$formAction = 'edit';
-		$success = __d('cake_dev', 'updated');
+		$success = __d('cake', 'updated');
 		if ($action === 'add') {
 			$formAction = 'add';
-			$success = __d('cake_dev', 'saved');
+			$success = __d('cake', 'saved');
 		}
 
 		if ($this->controller->beforeScaffold($action)) {
-			if ($action == 'edit') {
+			if ($action === 'edit') {
 				if (isset($request->params['pass'][0])) {
 					$this->ScaffoldModel->id = $request['pass'][0];
 				}
 				if (!$this->ScaffoldModel->exists()) {
-					throw new NotFoundException(__d('cake_dev', 'Invalid %s', Inflector::humanize($this->modelKey)));
+					throw new NotFoundException(__d('cake', 'Invalid %s', Inflector::humanize($this->modelKey)));
 				}
 			}
 
 			if (!empty($request->data)) {
-				if ($action == 'create') {
+				if ($action === 'create') {
 					$this->ScaffoldModel->create();
 				}
 
 				if ($this->ScaffoldModel->save($request->data)) {
 					if ($this->controller->afterScaffoldSave($action)) {
-						$message = __d('cake_dev',
+						$message = __d('cake',
 							'The %1$s has been %2$s',
 							Inflector::humanize($this->modelKey),
 							$success
@@ -252,7 +254,7 @@ class Scaffold {
 					}
 				} else {
 					if ($this->_validSession) {
-						$this->controller->Session->setFlash(__d('cake_dev', 'Please correct errors below.'));
+						$this->controller->Session->setFlash(__d('cake', 'Please correct errors below.'));
 					}
 				}
 			}
@@ -287,7 +289,8 @@ class Scaffold {
  *
  * @param CakeRequest $request Request for scaffolding
  * @return mixed Success on delete, error if delete fails
- * @throws MethodNotAllowedException, NotFoundException
+ * @throws MethodNotAllowedException When HTTP method is not a DELETE
+ * @throws NotFoundException When id being deleted does not exist.
  */
 	protected function _scaffoldDelete(CakeRequest $request) {
 		if ($this->controller->beforeScaffold('delete')) {
@@ -300,14 +303,14 @@ class Scaffold {
 			}
 			$this->ScaffoldModel->id = $id;
 			if (!$this->ScaffoldModel->exists()) {
-				throw new NotFoundException(__d('cake_dev', 'Invalid %s', Inflector::humanize($this->modelClass)));
+				throw new NotFoundException(__d('cake', 'Invalid %s', Inflector::humanize($this->modelClass)));
 			}
 			if ($this->ScaffoldModel->delete()) {
-				$message = __d('cake_dev', 'The %1$s with id: %2$d has been deleted.', Inflector::humanize($this->modelClass), $id);
+				$message = __d('cake', 'The %1$s with id: %2$s has been deleted.', Inflector::humanize($this->modelClass), $id);
 				return $this->_sendMessage($message);
 			} else {
-				$message = __d('cake_dev',
-					'There was an error deleting the %1$s with id: %2$d',
+				$message = __d('cake',
+					'There was an error deleting the %1$s with id: %2$s',
 					Inflector::humanize($this->modelClass),
 					$id
 				);
@@ -319,7 +322,7 @@ class Scaffold {
 	}
 
 /**
- * Sends a message to the user.  Either uses Sessions or flash messages depending
+ * Sends a message to the user. Either uses Sessions or flash messages depending
  * on the availability of a session
  *
  * @param string $message Message to display
@@ -349,8 +352,9 @@ class Scaffold {
  * `public $scaffold;` is placed in the controller's class definition.
  *
  * @param CakeRequest $request Request object for scaffolding
- * @return mixed A rendered view of scaffold action, or showing the error
- * @throws MissingActionException, MissingDatabaseException
+ * @return void
+ * @throws MissingActionException When methods are not scaffolded.
+ * @throws MissingDatabaseException When the database connection is undefined.
  */
 	protected function _scaffold(CakeRequest $request) {
 		$db = ConnectionManager::getDataSource($this->ScaffoldModel->useDbConfig);
@@ -419,7 +423,7 @@ class Scaffold {
 		$keys = array('belongsTo', 'hasOne', 'hasMany', 'hasAndBelongsToMany');
 		$associations = array();
 
-		foreach ($keys as $key => $type) {
+		foreach ($keys as $type) {
 			foreach ($this->ScaffoldModel->{$type} as $assocKey => $assocData) {
 				$associations[$type][$assocKey]['primaryKey'] =
 					$this->ScaffoldModel->{$assocKey}->primaryKey;
@@ -430,14 +434,21 @@ class Scaffold {
 				$associations[$type][$assocKey]['foreignKey'] =
 					$assocData['foreignKey'];
 
-				$associations[$type][$assocKey]['controller'] =
-					Inflector::pluralize(Inflector::underscore($assocData['className']));
+				list($plugin, $model) = pluginSplit($assocData['className']);
+				if ($plugin) {
+					$plugin = Inflector::underscore($plugin);
+				}
+				$associations[$type][$assocKey]['plugin'] = $plugin;
 
-				if ($type == 'hasAndBelongsToMany') {
+				$associations[$type][$assocKey]['controller'] =
+					Inflector::pluralize(Inflector::underscore($model));
+
+				if ($type === 'hasAndBelongsToMany') {
 					$associations[$type][$assocKey]['with'] = $assocData['with'];
 				}
 			}
 		}
 		return $associations;
 	}
+
 }

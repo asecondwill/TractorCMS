@@ -2,7 +2,7 @@
 <html lang="en">
 	<?php echo $this->Html->charset(); ?>
 	<title>
-		<?php __('CMS'); ?>
+		<?php echo __('CMS'); ?>
 		<?php echo $title_for_layout; ?>
 	</title>
 	<?php
@@ -62,7 +62,7 @@ $this->Js->buffer($a);
 				<a id='settings' href="/admin/settings">Settings</a> |
 				Welcome: <?php echo AuthComponent::user('first_name') . " " .  AuthComponent::user('last_name')?>.  <?php echo $this->Html->link('Logout', array('admin'=>false,'controller' => 'users', 'plugin'=>'',  'action'=>'logout'));  ?>
 			</div>
-			<h1><a href='/status/'><?php echo $settings['site'] ?><span> <?php echo   __('// Website Administration', true) //. $sitetexts['Site Name']  ?></span></a></h1>
+			<h1><a href='/status/'><?php echo $settings['site'] ?><span> <?php echo   __('// Website Administration') //. $sitetexts['Site Name']  ?></span></a></h1>
 			<br class="clear"/>
 			<div id="menu" class="grid_12 alpha">
 			<ul class="sf-menu">

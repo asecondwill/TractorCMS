@@ -15,7 +15,7 @@ foreach ($medias as $media):
 			if ($media['Media']['type']=='gif' or $media['Media']['type']=='png' or $media['Media']['type']=='jpg'){
 			
 			echo "<a href='#'  id='" .  $media['Media']['filename'] . "' class='media-item-$field_name'>";
-			 echo   $image->resize("/../media/" . $media['Media']['filename'] , 80, 80, true,array('border'=>'0', 'title' => $media['Media']['filename'], 'alt'=>'MyImage'));
+			 echo   $this->Image->resize("/../media/" . $media['Media']['filename'] , 80, 80, true,array('border'=>'0', 'title' => $media['Media']['filename'], 'alt'=>'MyImage'));
 			 echo "</a>";
 			}
 			else{

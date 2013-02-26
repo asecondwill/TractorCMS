@@ -36,7 +36,7 @@ App::build(array(
       'Plugin' => array(ROOT . '/Tractor/Plugin/'),
       'Controller' => array(ROOT . '/Tractor/Controller/'),
       'Model' => array(ROOT . '/Tractor/Model/'),
-      'Model/Behavior' => array(ROOT . '/Tractor/Model/Behaviour/'),
+      'Model/Behavior' => array(ROOT . '/Tractor/Model/Behavior/'),
       'View' => array(ROOT . '/Tractor/View/'),
       'View/Helper' => array(ROOT . '/Tractor/View/Helper/'),
   ));

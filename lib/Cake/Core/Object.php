@@ -1,19 +1,13 @@
 <?php
 /**
- * Object class, allowing __construct and __destruct in PHP4.
- *
- * Also includes methods for logging and the special method RequestAction,
- * to call other Controllers' Actions from anywhere.
- *
- * PHP 5
- *
  * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
- * Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
+ * For full copyright and license information, please see the LICENSE.txt
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright     Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  * @link          http://cakephp.org CakePHP(tm) Project
  * @package       Cake.Core
  * @since         CakePHP(tm) v 0.2.9
@@ -55,8 +49,18 @@ class Object {
  * or tie plugins into a main application. requestAction can be used to return rendered views
  * or fetch the return value from controller actions.
  *
- * @param mixed $url String or array-based url.
- * @param array $extra if array includes the key "return" it sets the AutoRender to true.
+ * Under the hood this method uses Router::reverse() to convert the $url parameter into a string
+ * URL. You should use URL formats that are compatible with Router::reverse()
+ *
+ * #### Passing POST and GET data
+ *
+ * POST and GET data can be simulated in requestAction. Use `$extra['url']` for
+ * GET data. The `$extra['data']` parameter allows POST data simulation.
+ *
+ * @param string|array $url String or array-based url. Unlike other url arrays in CakePHP, this
+ *    url will not automatically handle passed and named arguments in the $url parameter.
+ * @param array $extra if array includes the key "return" it sets the AutoRender to true. Can
+ *    also be used to submit GET/POST data, and named/passed arguments.
  * @return mixed Boolean true or false on success/failure, or contents
  *    of rendered action if 'return' is set in $extra.
  */
@@ -70,20 +74,29 @@ class Object {
 			$extra['autoRender'] = 1;
 			unset($extra[$index]);
 		}
-		if (is_array($url) && !isset($extra['url'])) {
+		$arrayUrl = is_array($url);
+		if ($arrayUrl && !isset($extra['url'])) {
 			$extra['url'] = array();
 		}
+		if ($arrayUrl && !isset($extra['data'])) {
+			$extra['data'] = array();
+		}
 		$extra = array_merge(array('autoRender' => 0, 'return' => 1, 'bare' => 1, 'requested' => 1), $extra);
+		$data = isset($extra['data']) ? $extra['data'] : null;
+		unset($extra['data']);
 
+		if (is_string($url) && strpos($url, FULL_BASE_URL) === 0) {
+			$url = Router::normalize(str_replace(FULL_BASE_URL, '', $url));
+		}
 		if (is_string($url)) {
 			$request = new CakeRequest($url);
 		} elseif (is_array($url)) {
 			$params = $url + array('pass' => array(), 'named' => array(), 'base' => false);
 			$params = array_merge($params, $extra);
-			$request = new CakeRequest(Router::reverse($params), false);
-			if (isset($params['data'])) {
-				$request->data = $params['data'];
-			}
+			$request = new CakeRequest(Router::reverse($params));
+		}
+		if (isset($data)) {
+			$request->data = $data;
 		}
 
 		$dispatcher = new Dispatcher();
@@ -116,12 +129,11 @@ class Object {
 				return $this->{$method}($params[0], $params[1], $params[2], $params[3], $params[4]);
 			default:
 				return call_user_func_array(array(&$this, $method), $params);
-			break;
 		}
 	}
 
 /**
- * Stop execution of the current script.  Wraps exit() making
+ * Stop execution of the current script. Wraps exit() making
  * testing easier.
  *
  * @param integer|string $status see http://php.net/exit for values
@@ -132,17 +144,15 @@ class Object {
 	}
 
 /**
- * Convience method to write a message to CakeLog.  See CakeLog::write()
+ * Convenience method to write a message to CakeLog. See CakeLog::write()
  * for more information on writing to logs.
  *
  * @param string $msg Log message
  * @param integer $type Error type constant. Defined in app/Config/core.php.
  * @return boolean Success of log write
  */
-	public function log($msg, $type = LOG_ERROR) {
-		if (!class_exists('CakeLog')) {
-			require CAKE . 'cake_log.php';
-		}
+	public function log($msg, $type = LOG_ERR) {
+		App::uses('CakeLog', 'Log');
 		if (!is_string($msg)) {
 			$msg = print_r($msg, true);
 		}
@@ -150,7 +160,7 @@ class Object {
 	}
 
 /**
- * Allows setting of multiple properties of the object in a single line of code.  Will only set
+ * Allows setting of multiple properties of the object in a single line of code. Will only set
  * properties that are part of a class declaration.
  *
  * @param array $properties An associative array containing properties and corresponding values.
@@ -171,12 +181,12 @@ class Object {
  * Merges this objects $property with the property in $class' definition.
  * This classes value for the property will be merged on top of $class'
  *
- * This provides some of the DRY magic CakePHP provides.  If you want to shut it off, redefine
+ * This provides some of the DRY magic CakePHP provides. If you want to shut it off, redefine
  * this method as an empty function.
  *
  * @param array $properties The name of the properties to merge.
  * @param string $class The class to merge the property with.
- * @param boolean $normalize Set to true to run the properties through Set::normalize() before merging.
+ * @param boolean $normalize Set to true to run the properties through Hash::normalize() before merging.
  * @return void
  */
 	protected function _mergeVars($properties, $class, $normalize = true) {
@@ -189,11 +199,12 @@ class Object {
 				$this->{$var} != $classProperties[$var]
 			) {
 				if ($normalize) {
-					$classProperties[$var] = Set::normalize($classProperties[$var]);
-					$this->{$var} = Set::normalize($this->{$var});
+					$classProperties[$var] = Hash::normalize($classProperties[$var]);
+					$this->{$var} = Hash::normalize($this->{$var});
 				}
-				$this->{$var} = Set::merge($classProperties[$var], $this->{$var});
+				$this->{$var} = Hash::merge($classProperties[$var], $this->{$var});
 			}
 		}
 	}
+
 }

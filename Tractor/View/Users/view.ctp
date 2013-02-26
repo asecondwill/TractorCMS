@@ -12,7 +12,7 @@ if($current_user['User']['id'] == $user['User']['id']){
 </h1>
 
 	<?php echo $this->Session->flash(); ?>
-<!-- <div class='when'>Last Updated vvv <?php echo $time->format('d F Y',$user['User']['modified']); ?>	</div> -->
+<!-- <div class='when'>Last Updated vvv <?php echo $this->Time->format('d F Y',$user['User']['modified']); ?>	</div> -->
 		
 <h2>About</h2>		
 <h3>Employer/Organisation:</h3>

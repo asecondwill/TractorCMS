@@ -1,7 +1,7 @@
 <?php
 class Setting extends AppModel {
 	//var $name = 'Setting';
-	var $validate = array(
+	public $validate = array(
 		'site' => array(
 			'notempty' => array(
 				'rule' => array('notempty'),
@@ -64,7 +64,7 @@ class Setting extends AppModel {
 		),
 	);
 	
-	 function afterSave() {	 	       		
+	public function afterSave($created) {	 	       		
 //		    Cache::write('Settings', $this->data['Setting']);    
 		    
 //			App::import('Model', 'CakeSession');
