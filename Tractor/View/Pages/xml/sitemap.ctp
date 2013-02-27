@@ -8,7 +8,7 @@
     <?php foreach ($pages as $page):?>
     <url>
         <loc><?php echo Router::url("/" . $page['Content']['content_type'] ."/".$page['Content']['slug'],true); ?></loc>
-        <lastmod><?php echo $time->toAtom($page['Content']['modified']); ?></lastmod>
+        <lastmod><?php echo $this->Time->toAtom($page['Content']['modified']); ?></lastmod>
         <priority>0.8</priority>
     </url>
    <?php endforeach; ?> 

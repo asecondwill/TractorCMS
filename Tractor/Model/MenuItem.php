@@ -23,9 +23,9 @@ class MenuItem extends AppModel {
 	);
 	
 	
-	function afterSave(){
+	// function afterSave(){
 	
-	}
+	// }
 
 }
 ?>

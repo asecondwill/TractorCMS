@@ -27,7 +27,7 @@
     <header>
 		<h1><sup>#</sup>2</h1>
 		<nav>
-			<?php	echo $this->Menu->setup($contents, array('type'=> 'tree', 'modelName'=>'Content', 'title'=>'title', 'depth' =>0, 'slugUrl' =>'path',  'selected' => $this->here)); 			
+			<?php	echo $this->Menu->setup($contents, array('type'=> 'tree', 'modelName'=>'Content', 'title'=>'title', 'depth' =>0, 'slugUrl' =>'path',  'selected' => $this->request->here)); 			
 			?>
 		</nav>
 		

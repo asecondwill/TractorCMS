@@ -5,31 +5,23 @@
  * PHP 5
  *
  * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
- * Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
+ * For full copyright and license information, please see the LICENSE.txt
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright     Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  * @link          http://cakephp.org CakePHP(tm) Project
  * @package       Cake.I18n
  * @since         CakePHP(tm) v 1.2.0.4116
  * @license       MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 
-/**
- * Included libraries.
- */
 App::uses('CakePlugin', 'Core');
 App::uses('L10n', 'I18n');
 App::uses('Multibyte', 'I18n');
-
-if (function_exists('mb_internal_encoding')) {
-	$encoding = Configure::read('App.encoding');
-	if (!empty($encoding)) {
-		mb_internal_encoding($encoding);
-	}
-}
+App::uses('CakeSession', 'Model/Datasource');
 
 /**
  * I18n handles translation of Text and time format strings.
@@ -39,11 +31,18 @@ if (function_exists('mb_internal_encoding')) {
 class I18n {
 
 /**
- * Instance of the I10n class for localization
+ * Instance of the L10n class for localization
  *
- * @var I10n
+ * @var L10n
  */
 	public $l10n = null;
+
+/**
+ * Default domain of translation
+ *
+ * @var string
+ */
+	public static $defaultDomain = 'default';
 
 /**
  * Current domain of translation
@@ -82,14 +81,29 @@ class I18n {
 	protected $_noLocale = false;
 
 /**
- * Set to true when I18N::_bindTextDomain() is called for the first time.
- * If a translation file is found it is set to false again
+ * Translation categories
  *
  * @var array
  */
 	protected $_categories = array(
 		'LC_ALL', 'LC_COLLATE', 'LC_CTYPE', 'LC_MONETARY', 'LC_NUMERIC', 'LC_TIME', 'LC_MESSAGES'
 	);
+
+/**
+ * Escape string
+ *
+ * @var string
+ */
+	protected $_escape = null;
+
+/**
+ * Constructor, use I18n::getInstance() to get the i18n translation object.
+ *
+ * @return void
+ */
+	public function __construct() {
+		$this->l10n = new L10n();
+	}
 
 /**
  * Return a static instance of the I18n class
@@ -100,7 +114,6 @@ class I18n {
 		static $instance = array();
 		if (!$instance) {
 			$instance[0] = new I18n();
-			$instance[0]->l10n = new L10n();
 		}
 		return $instance[0];
 	}
@@ -111,12 +124,14 @@ class I18n {
  *
  * @param string $singular String to translate
  * @param string $plural Plural string (if any)
- * @param string $domain Domain The domain of the translation.  Domains are often used by plugin translations
+ * @param string $domain Domain The domain of the translation. Domains are often used by plugin translations
  * @param string $category Category The integer value of the category to use.
  * @param integer $count Count Count is used with $plural to choose the correct plural form.
+ * @param string $language Language to translate string to.
+ * 	If null it checks for language in session followed by Config.language configuration variable.
  * @return string translated string.
  */
-	public static function translate($singular, $plural = null, $domain = null, $category = 6, $count = null) {
+	public static function translate($singular, $plural = null, $domain = null, $category = 6, $count = null, $language = null) {
 		$_this = I18n::getInstance();
 
 		if (strpos($singular, "\r\n") !== false) {
@@ -129,10 +144,14 @@ class I18n {
 		if (is_numeric($category)) {
 			$_this->category = $_this->_categories[$category];
 		}
-		$language = Configure::read('Config.language');
 
-		if (!empty($_SESSION['Config']['language'])) {
-			$language = $_SESSION['Config']['language'];
+		if (empty($language)) {
+			if (CakeSession::started()) {
+				$language = CakeSession::read('Config.language');
+			}
+			if (empty($language)) {
+				$language = Configure::read('Config.language');
+			}
 		}
 
 		if (($_this->_lang && $_this->_lang !== $language) || !$_this->_lang) {
@@ -141,7 +160,7 @@ class I18n {
 		}
 
 		if (is_null($domain)) {
-			$domain = 'default';
+			$domain = self::$defaultDomain;
 		}
 
 		$_this->domain = $domain . '_' . $_this->l10n->lang;
@@ -155,8 +174,8 @@ class I18n {
 			Cache::write($_this->domain, $_this->_domains[$domain][$_this->_lang], '_cake_core_');
 		}
 
-		if ($_this->category == 'LC_TIME') {
-			return $_this->_translateTime($singular,$domain);
+		if ($_this->category === 'LC_TIME') {
+			return $_this->_translateTime($singular, $domain);
 		}
 
 		if (!isset($count)) {
@@ -177,6 +196,18 @@ class I18n {
 				if (is_array($trans)) {
 					if (isset($trans[$plurals])) {
 						$trans = $trans[$plurals];
+					} else {
+						trigger_error(
+							__d('cake_dev',
+								'Missing plural form translation for "%s" in "%s" domain, "%s" locale. ' .
+								' Check your po file for correct plurals and valid Plural-Forms header.',
+								$singular,
+								$domain,
+								$_this->_lang
+							),
+							E_USER_WARNING
+						);
+						$trans = $trans[0];
 					}
 				}
 				if (strlen($trans)) {
@@ -192,7 +223,7 @@ class I18n {
 	}
 
 /**
- * Clears the domains internal data array.  Useful for testing i18n.
+ * Clears the domains internal data array. Useful for testing i18n.
  *
  * @return void
  */
@@ -284,41 +315,51 @@ class I18n {
 			}
 		}
 
-
 		foreach ($searchPaths as $directory) {
-
 			foreach ($this->l10n->languagePath as $lang) {
-				$file = $directory . $lang . DS . $this->category . DS . $domain;
 				$localeDef = $directory . $lang . DS . $this->category;
+				if (is_file($localeDef)) {
+					$definitions = self::loadLocaleDefinition($localeDef);
+					if ($definitions !== false) {
+						$this->_domains[$domain][$this->_lang][$this->category] = self::loadLocaleDefinition($localeDef);
+						$this->_noLocale = false;
+						return $domain;
+					}
+				}
 
 				if ($core) {
 					$app = $directory . $lang . DS . $this->category . DS . 'core';
+					$translations = false;
 
-					if (file_exists($fn = "$app.mo")) {
-						$this->_loadMo($fn, $domain);
-						$this->_noLocale = false;
+					if (is_file($app . '.mo')) {
+						$translations = self::loadMo($app . '.mo');
+					}
+					if ($translations === false && is_file($app . '.po')) {
+						$translations = self::loadPo($app . '.po');
+					}
+
+					if ($translations !== false) {
+						$this->_domains[$domain][$this->_lang][$this->category] = $translations;
 						$merge[$domain][$this->_lang][$this->category] = $this->_domains[$domain][$this->_lang][$this->category];
-						$core = null;
-					} elseif (file_exists($fn = "$app.po") && ($f = fopen($fn, "r"))) {
-						$this->_loadPo($f, $domain);
 						$this->_noLocale = false;
-						$merge[$domain][$this->_lang][$this->category] = $this->_domains[$domain][$this->_lang][$this->category];
 						$core = null;
 					}
 				}
 
-				if (file_exists($fn = "$file.mo")) {
-					$this->_loadMo($fn, $domain);
+				$file = $directory . $lang . DS . $this->category . DS . $domain;
+				$translations = false;
+
+				if (is_file($file . '.mo')) {
+					$translations = self::loadMo($file . '.mo');
+				}
+				if ($translations === false && is_file($file . '.po')) {
+					$translations = self::loadPo($file . '.po');
+				}
+
+				if ($translations !== false) {
+					$this->_domains[$domain][$this->_lang][$this->category] = $translations;
 					$this->_noLocale = false;
 					break 2;
-				} elseif (file_exists($fn = "$file.po") && ($f = fopen($fn, "r"))) {
-					$this->_loadPo($f, $domain);
-					$this->_noLocale = false;
-					break 2;
-				} elseif (is_file($localeDef) && ($f = fopen($localeDef, "r"))) {
-					$this->_loadLocaleDefinition($f, $domain);
-					$this->_noLocale = false;
-					return $domain;
 				}
 			}
 		}
@@ -342,31 +383,34 @@ class I18n {
 				$this->_domains[$domain][$this->_lang][$this->category]["%plural-c"] = $switch;
 				unset($this->_domains[$domain][$this->_lang][$this->category]["%po-header"]);
 			}
-			$this->_domains = Set::pushDiff($this->_domains, $merge);
+			$this->_domains = Hash::mergeDiff($this->_domains, $merge);
 
 			if (isset($this->_domains[$domain][$this->_lang][$this->category][null])) {
 				unset($this->_domains[$domain][$this->_lang][$this->category][null]);
 			}
 		}
+
 		return $domain;
 	}
 
 /**
- * Loads the binary .mo file for translation and sets the values for this translation in the var I18n::_domains
+ * Loads the binary .mo file and returns array of translations
  *
- * @param string $file Binary .mo file to load
- * @param string $domain Domain where to load file in
- * @return void
+ * @param string $filename Binary .mo file to load
+ * @return mixed Array of translations on success or false on failure
  */
-	protected function _loadMo($file, $domain) {
-		$data = file_get_contents($file);
+	public static function loadMo($filename) {
+		$translations = false;
 
-		if ($data) {
+		// @codingStandardsIgnoreStart
+		// Binary files extracted makes non-standard local variables
+		if ($data = file_get_contents($filename)) {
+			$translations = array();
 			$header = substr($data, 0, 20);
 			$header = unpack("L1magic/L1version/L1count/L1o_msg/L1o_trn", $header);
 			extract($header);
 
-			if ((dechex($magic) == '950412de' || dechex($magic) == 'ffffffff950412de') && $version == 0) {
+			if ((dechex($magic) === '950412de' || dechex($magic) === 'ffffffff950412de') && !$version) {
 				for ($n = 0; $n < $count; $n++) {
 					$r = unpack("L1len/L1offs", substr($data, $o_msg + $n * 8, 8));
 					$msgid = substr($data, $r["offs"], $r["len"]);
@@ -381,24 +425,30 @@ class I18n {
 					if (strpos($msgstr, "\000")) {
 						$msgstr = explode("\000", $msgstr);
 					}
-					$this->_domains[$domain][$this->_lang][$this->category][$msgid] = $msgstr;
+					$translations[$msgid] = $msgstr;
 
 					if (isset($msgid_plural)) {
-						$this->_domains[$domain][$this->_lang][$this->category][$msgid_plural] =& $this->_domains[$domain][$this->_lang][$this->category][$msgid];
+						$translations[$msgid_plural] =& $translations[$msgid];
 					}
 				}
 			}
 		}
+		// @codingStandardsIgnoreEnd
+
+		return $translations;
 	}
 
 /**
- * Loads the text .po file for translation and sets the values for this translation in the var I18n::_domains
+ * Loads the text .po file and returns array of translations
  *
- * @param resource $file Text .po file to load
- * @param string $domain Domain to load file in
- * @return array Binded domain elements
+ * @param string $filename Text .po file to load
+ * @return mixed Array of translations on success or false on failure
  */
-	protected function _loadPo($file, $domain) {
+	public static function loadPo($filename) {
+		if (!$file = fopen($filename, "r")) {
+			return false;
+		}
+
 		$type = 0;
 		$translations = array();
 		$translationKey = "";
@@ -407,7 +457,7 @@ class I18n {
 
 		do {
 			$line = trim(fgets($file));
-			if ($line == "" || $line[0] == "#") {
+			if ($line === "" || $line[0] === "#") {
 				continue;
 			}
 			if (preg_match("/msgid[[:space:]]+\"(.+)\"$/i", $line, $regs)) {
@@ -457,28 +507,34 @@ class I18n {
 			}
 		} while (!feof($file));
 		fclose($file);
+
 		$merge[""] = $header;
-		return $this->_domains[$domain][$this->_lang][$this->category] = array_merge($merge ,$translations);
+		return array_merge($merge, $translations);
 	}
 
 /**
  * Parses a locale definition file following the POSIX standard
  *
- * @param resource $file file handler
- * @param string $domain Domain where locale definitions will be stored
- * @return void
+ * @param string $filename Locale definition filename
+ * @return mixed Array of definitions on success or false on failure
  */
-	protected function _loadLocaleDefinition($file, $domain = null) {
+	public static function loadLocaleDefinition($filename) {
+		if (!$file = fopen($filename, "r")) {
+			return false;
+		}
+
+		$definitions = array();
 		$comment = '#';
 		$escape = '\\';
 		$currentToken = false;
 		$value = '';
+		$_this = I18n::getInstance();
 		while ($line = fgets($file)) {
 			$line = trim($line);
 			if (empty($line) || $line[0] === $comment) {
 				continue;
 			}
-			$parts = preg_split("/[[:space:]]+/",$line);
+			$parts = preg_split("/[[:space:]]+/", $line);
 			if ($parts[0] === 'comment_char') {
 				$comment = $parts[1];
 				continue;
@@ -503,23 +559,25 @@ class I18n {
 				continue;
 			}
 
-			$mustEscape = array($escape . ',' , $escape . ';', $escape . '<', $escape . '>', $escape . $escape);
+			$mustEscape = array($escape . ',', $escape . ';', $escape . '<', $escape . '>', $escape . $escape);
 			$replacements = array_map('crc32', $mustEscape);
 			$value = str_replace($mustEscape, $replacements, $value);
 			$value = explode(';', $value);
-			$this->__escape = $escape;
+			$_this->_escape = $escape;
 			foreach ($value as $i => $val) {
 				$val = trim($val, '"');
-				$val = preg_replace_callback('/(?:<)?(.[^>]*)(?:>)?/', array(&$this, '_parseLiteralValue'), $val);
+				$val = preg_replace_callback('/(?:<)?(.[^>]*)(?:>)?/', array(&$_this, '_parseLiteralValue'), $val);
 				$val = str_replace($replacements, $mustEscape, $val);
 				$value[$i] = $val;
 			}
 			if (count($value) == 1) {
-				$this->_domains[$domain][$this->_lang][$this->category][$currentToken] = array_pop($value);
+				$definitions[$currentToken] = array_pop($value);
 			} else {
-				$this->_domains[$domain][$this->_lang][$this->category][$currentToken] = $value;
+				$definitions[$currentToken] = $value;
 			}
 		}
+
+		return $definitions;
 	}
 
 /**
@@ -530,21 +588,21 @@ class I18n {
  */
 	protected function _parseLiteralValue($string) {
 		$string = $string[1];
-		if (substr($string, 0, 2) === $this->__escape . 'x') {
-			$delimiter = $this->__escape . 'x';
-			return join('', array_map('chr', array_map('hexdec',array_filter(explode($delimiter, $string)))));
+		if (substr($string, 0, 2) === $this->_escape . 'x') {
+			$delimiter = $this->_escape . 'x';
+			return implode('', array_map('chr', array_map('hexdec',array_filter(explode($delimiter, $string)))));
 		}
-		if (substr($string, 0, 2) === $this->__escape . 'd') {
-			$delimiter = $this->__escape . 'd';
-			return join('', array_map('chr', array_filter(explode($delimiter, $string))));
+		if (substr($string, 0, 2) === $this->_escape . 'd') {
+			$delimiter = $this->_escape . 'd';
+			return implode('', array_map('chr', array_filter(explode($delimiter, $string))));
 		}
-		if ($string[0] === $this->__escape && isset($string[1]) && is_numeric($string[1])) {
-			$delimiter = $this->__escape;
-			return join('', array_map('chr', array_filter(explode($delimiter, $string))));
+		if ($string[0] === $this->_escape && isset($string[1]) && is_numeric($string[1])) {
+			$delimiter = $this->_escape;
+			return implode('', array_map('chr', array_filter(explode($delimiter, $string))));
 		}
 		if (substr($string, 0, 3) === 'U00') {
 			$delimiter = 'U00';
-			return join('', array_map('chr', array_map('hexdec', array_filter(explode($delimiter, $string)))));
+			return implode('', array_map('chr', array_map('hexdec', array_filter(explode($delimiter, $string)))));
 		}
 		if (preg_match('/U([0-9a-fA-F]{4})/', $string, $match)) {
 			return Multibyte::ascii(array(hexdec($match[1])));
@@ -567,4 +625,5 @@ class I18n {
 		}
 		return $format;
 	}
+
 }

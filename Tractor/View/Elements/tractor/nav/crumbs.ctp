@@ -7,7 +7,7 @@
 if(isset($path)){
 	foreach($path as $crumb){
 		if($crumb){
-			if ($crumb['Content']['path'] == $this->here){
+			if ($crumb['Content']['path'] == $this->request->here){
 					  
 					  if($crumb{'Content'}{'path'} != '/home') echo " > {$crumb['Content']['title']} ";
 			}else{
@@ -16,5 +16,5 @@ if(isset($path)){
 		}	 
 	}
 }else{
-	echo " > " . $title;
+	echo " > " . $this->fetch('title');
 }

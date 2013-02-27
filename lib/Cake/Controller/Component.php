@@ -4,12 +4,13 @@
  * PHP 5
  *
  * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
- * Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
+ * For full copyright and license information, please see the LICENSE.txt
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright     Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  * @link          http://cakephp.org CakePHP(tm) Project
  * @package       Cake.Controller
  * @since         CakePHP(tm) v 1.2
@@ -18,14 +19,14 @@
 App::uses('ComponentCollection', 'Controller');
 
 /**
- * Base class for an individual Component.  Components provide resuable bits of
- * controller logic that can be composed into a controller.  Components also
+ * Base class for an individual Component. Components provide reusable bits of
+ * controller logic that can be composed into a controller. Components also
  * provide request life-cycle callbacks for injecting logic at specific points.
  *
  * ## Life cycle callbacks
  *
  * Components can provide several callbacks that are fired at various stages of the request
- * cycle.  The available callbacks are:
+ * cycle. The available callbacks are:
  *
  * - `initialize()` - Fired before the controller's beforeFilter method.
  * - `startup()` - Fired after the controller's beforeFilter method.
@@ -35,7 +36,7 @@ App::uses('ComponentCollection', 'Controller');
  * - `beforeRedirect()` - Fired before a redirect() is done.
  *
  * @package       Cake.Controller
- * @link          http://book.cakephp.org/view/993/Components
+ * @link          http://book.cakephp.org/2.0/en/controllers/components.html
  * @see Controller::$components
  */
 class Component extends Object {
@@ -106,7 +107,8 @@ class Component extends Object {
  * @return void
  * @link http://book.cakephp.org/2.0/en/controllers/components.html#Component::initialize
  */
-	public function initialize($controller) { }
+	public function initialize(Controller $controller) {
+	}
 
 /**
  * Called after the Controller::beforeFilter() and before the controller action
@@ -115,32 +117,35 @@ class Component extends Object {
  * @return void
  * @link http://book.cakephp.org/2.0/en/controllers/components.html#Component::startup
  */
-	public function startup($controller) { }
+	public function startup(Controller $controller) {
+	}
 
 /**
- * Called after the Controller::beforeRender(), after the view class is loaded, and before the
- * Controller::render()
+ * Called before the Controller::beforeRender(), and before
+ * the view class is loaded, and before Controller::render()
  *
  * @param Controller $controller Controller with components to beforeRender
  * @return void
  * @link http://book.cakephp.org/2.0/en/controllers/components.html#Component::beforeRender
  */
-	public function beforeRender($controller) { }
+	public function beforeRender(Controller $controller) {
+	}
 
 /**
  * Called after Controller::render() and before the output is printed to the browser.
  *
  * @param Controller $controller Controller with components to shutdown
  * @return void
- * @link @link http://book.cakephp.org/2.0/en/controllers/components.html#Component::shutdown
+ * @link http://book.cakephp.org/2.0/en/controllers/components.html#Component::shutdown
  */
-	public function shutdown($controller) { }
+	public function shutdown(Controller $controller) {
+	}
 
 /**
- * Called before Controller::redirect().  Allows you to replace the url that will
+ * Called before Controller::redirect(). Allows you to replace the url that will
  * be redirected to with a new url. The return of this method can either be an array or a string.
  *
- * If the return is an array and contains a 'url' key.  You may also supply the following:
+ * If the return is an array and contains a 'url' key. You may also supply the following:
  *
  * - `status` The status code for the redirect
  * - `exit` Whether or not the redirect should exit.
@@ -152,9 +157,10 @@ class Component extends Object {
  * @param string|array $url Either the string or url array that is being redirected to.
  * @param integer $status The status code of the redirect
  * @param boolean $exit Will the script exit.
- * @return array|null Either an array or null.
+ * @return array|void Either an array or null.
  * @link @link http://book.cakephp.org/2.0/en/controllers/components.html#Component::beforeRedirect
  */
-	public function beforeRedirect($controller, $url, $status = null, $exit = true) {}
+	public function beforeRedirect(Controller $controller, $url, $status = null, $exit = true) {
+	}
 
 }

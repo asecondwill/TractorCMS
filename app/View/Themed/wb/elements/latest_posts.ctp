@@ -17,7 +17,7 @@ if ($posts){
 		
 		if ($detail){
 			echo 	"<article><h1><a href='/posts/view/{$post['Content']['slug']}'>{$post['Post']['title']}</a></h1>
-			 	<p class='meta'> by Will on {$time->niceShort($post['Post']['published'])} </p>
+			 	<p class='meta'> by Will on {$this->Time->niceShort($post['Post']['published'])} </p>
 			 	<p>{$post['Post']['excerpt']} </p>
 			 	<p><a class='more' href='/posts/view/{$post['Content']['slug']}'>Read More</a>
 			 	<p>

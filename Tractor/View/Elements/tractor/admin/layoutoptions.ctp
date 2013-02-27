@@ -1,6 +1,6 @@
 <?php
 $layouts =  $this->Directory->recursiveArray('/app/View/Themed/' . $this->theme .'/layouts' , true, array());
-$views =  $this->Directory->recursiveArray('/app/View/Themed/' . $this->theme . '/' . $this->params['controller'] , true, array());
+$views =  $this->Directory->recursiveArray('/app/View/Themed/' . $this->theme . '/' . $this->request->params['controller'] , true, array());
 
 
 

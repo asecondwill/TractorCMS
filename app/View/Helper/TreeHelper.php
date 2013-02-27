@@ -149,7 +149,7 @@ class TreeHelper extends AppHelper {
 			$this->_settings['autoPath'][2] = 'active';
 		}
 		extract($this->_settings);
-		if ($indent === null && Configure::read()) {
+		if ($indent === null && Configure::read('debug')) {
 			$indent = true;
 		}
 		$view =& ClassRegistry:: getObject('view');
@@ -452,9 +452,9 @@ class TreeHelper extends AppHelper {
  * to set properties of the holding type - pass 'previous' for the 4th param
  * i.e.
  * // Hide children (2)
- * $tree->addTypeAttribute('style', 'display', 'hidden');
+ * $this->Tree->addTypeAttribute('style', 'display', 'hidden');
  * // give top level type (1) a class
- * $tree->addTypeAttribute('class', 'hasHiddenGrandChildren', null, 'previous');
+ * $this->Tree->addTypeAttribute('class', 'hasHiddenGrandChildren', null, 'previous');
  *
  * @param string $id
  * @param string $key

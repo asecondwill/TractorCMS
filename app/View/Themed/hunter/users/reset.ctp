@@ -11,7 +11,7 @@
 
 <h1>Password Reset</h1>
 
-<?php echo $session->flash(); ?>
+<?php echo $this->Session->flash(); ?>
 
 	<?php 
 echo $this->Form->create('User', array('url' => array('controller' => 'users', 'action' => 'reset')));

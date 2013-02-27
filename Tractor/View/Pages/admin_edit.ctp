@@ -33,7 +33,7 @@
     </div>
     <div id="tab2" class="tab_content">
        <?php
-       //	echo $tractorInputs->selectImage($this->data['Page']['hero'], 'jpg', 'hero', 'Page', 'Hero Image');
+       //	echo $this->TractorInputs->selectImage($this->request->data['Page']['hero'], 'jpg', 'hero', 'Page', 'Hero Image');
         echo $this->element('tractor/admin/inputs/related', array(
         												'hint'=>"Choose 4 related Events for the home page", 
         												'class_name'=>'', 
@@ -84,11 +84,11 @@
 		<h2>Info</h2>
 			<table>
 				<tr>
-					<th>Created</th><td><?php echo $this->Time->niceShort($this->data['Page']['created']); ?></td>
+					<th>Created</th><td><?php echo $this->Time->niceShort($this->request->data['Page']['created']); ?></td>
 				</tr>
 				
 <tr>
-					<th>Modified</th><td><?php echo $this->Time->niceShort($this->data['Page']['modified']); ?></td>
+					<th>Modified</th><td><?php echo $this->Time->niceShort($this->request->data['Page']['modified']); ?></td>
 				</tr>
 			</table>
 		</div>

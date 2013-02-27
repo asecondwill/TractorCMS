@@ -9,7 +9,7 @@
     <div class="events aside_item">
       
       <?php
-        echo $this->Menu->setup($contents, array('selected' => $this->here, 'type' => 'context', 'menuClass' => 'context-menu'));
+        echo $this->Menu->setup($contents, array('selected' => $this->request->here, 'type' => 'context', 'menuClass' => 'context-menu'));
        ?>
     </div>
     

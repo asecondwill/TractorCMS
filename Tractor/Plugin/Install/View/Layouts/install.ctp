@@ -2,7 +2,7 @@
 <html lang="en">
 	<?php echo $this->Html->charset(); ?>
 	<title>
-		<?php __('CMS'); ?>
+		<?php echo __('CMS'); ?>
 		<?php echo $title_for_layout; ?>
 	</title>
 	<?php

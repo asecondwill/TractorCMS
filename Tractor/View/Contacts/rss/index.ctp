@@ -24,9 +24,9 @@
         // This is the part where we clean the body text for output as the description 
         // of the rss item, this needs to have only text to make sure the feed validates
         $bodyText = preg_replace('=\(.*?\)=is', '', $contact['Contact']['body']);
-        $bodyText = $text->stripLinks($bodyText);
+        $bodyText = $this->Text->stripLinks($bodyText);
         $bodyText = Sanitize::stripAll($bodyText);
-        $bodyText = $text->truncate($bodyText, 400, '...', true, true);
+        $bodyText = $this->Text->truncate($bodyText, 400, '...', true, true);
  
         echo  $this->Rss->item(array(), array(
             'title' => $contact['Contact']['title'],

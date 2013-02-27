@@ -1,7 +1,10 @@
 <?php
 class AppController extends Controller {
-	public $components = array('RequestHandler', 'Session', 'DebugKit.Toolbar', 
-	'Auth'=> array('Form'=>array('userModel'=>'User'))
+	public $components = array(
+	'RequestHandler', 
+	'Session', 
+	'DebugKit.Toolbar', 
+	'Auth' 
 	);
 	
 	var $helpers = array('Html', 'Session', 'Form',  'Js', 'Text', 'MTree', 'Time', 'Layout', 'AssetCompress.AssetCompress', 'Cache', 'Menu', 'Tags.TagCloud', 'Twitter', 'Number');
@@ -17,15 +20,15 @@ class AppController extends Controller {
 		
 		
 		
-		App::import('Model', 'Menu');	
-		$Menu = new Menu;
+	
+		$Menu = ClassRegistry::init('Menu'); 
 		$Menu->recursive   = -1;
 		$menus=$Menu->find('all');
 		$this->set('menus_for_admin', $menus);
 		
 		
-		App::import('Model', 'Content');	
-		$Content = new Content;
+	
+		$Content = ClassRegistry::init('Content'); 
 		$contents = $Content->find('threaded', array(
 			'fields' => array('id', 'title', 'path', 'slug',  'lft', 'rght', 'parent_id'), 
 			'order' => 'lft ASC'
@@ -39,7 +42,7 @@ class AppController extends Controller {
 	
 	 function beforeFilter() { 
     	
-    	
+    	//$this->Auth->allow();
     	
 		$this->Auth->authorize = array('Controller');
   
@@ -64,7 +67,7 @@ class AppController extends Controller {
 		$this->_getSettings();
 		$this->theme = $this->settings['theme'];
 		
-		if (isset($this->params['admin'] )) {
+		if (isset($this->request->params['admin'] )) {
 			$this->layout = 'admin';
 		}
     }
@@ -72,8 +75,8 @@ class AppController extends Controller {
     function _getSettings(){
 		$this->settings = Cache::read("Settings");
 		if(!$this->settings){			
-			App::import('Model', 'Setting');
-			$Setting = new Setting;
+			
+			$Setting = 			ClassRegistry::init('Setting');
 			$settings = $Setting->find();  #get it?
 			Cache::write('Settings', $settings['Setting']);
 			$this->settings = $settings['Setting'];
@@ -103,10 +106,10 @@ class AppController extends Controller {
  
 	function isAuthorized(){
         if($this->Auth->user('group') == 'Administrator' or $this->Auth->user('group') == 'Super') return true; //Remove this line if you don't want admins to have access to everything by default
-        if(!empty($this->permissions[$this->action])){
-            if($this->permissions[$this->action] == '*') return true;
-            if (!is_array($this->permissions[$this->action])) {echo "It must be an array of permissions" ; die;}
-            if(in_array($this->Auth->user('group'), $this->permissions[$this->action])) return true;
+        if(!empty($this->permissions[$this->request->action])){
+            if($this->permissions[$this->request->action] == '*') return true;
+            if (!is_array($this->permissions[$this->request->action])) {echo "It must be an array of permissions" ; die;}
+            if(in_array($this->Auth->user('group'), $this->permissions[$this->request->action])) return true;
         }
         return true;
     } 

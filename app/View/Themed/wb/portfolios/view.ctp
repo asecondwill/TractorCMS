@@ -5,7 +5,7 @@
 			$portfolioed_in .= "<a href='/portfolios/index/{$tag['keyname']}'>{$tag['name']}</a>  ";
 	}
 	 echo " <h1>{$portfolio['Portfolio']['title']}</h1>
-			 	<p class='meta'> by Will on {$time->niceShort($portfolio['Portfolio']['published'])} 
+			 	<p class='meta'> by Will on {$this->Time->niceShort($portfolio['Portfolio']['published'])} 
 			 	";
 			 	
 			 				
@@ -21,7 +21,7 @@ foreach($heros as $key => $item)
 $heros_str = implode($heros);
 $heros = explode(",", $heros_str);
 
-echo   $image->resize("/../media/" . $heros[0] , 560, 400, true,array('border'=>'0', 'alt'=> $heros[0]));
+echo   $this->Image->resize("/../media/" . $heros[0] , 560, 400, true,array('border'=>'0', 'alt'=> $heros[0]));
 			 	
 echo "	{$portfolio['Portfolio']['body']}		 	<p>
 			 		<span class= 'comments'>0 Comments</span>

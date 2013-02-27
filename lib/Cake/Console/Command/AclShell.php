@@ -5,27 +5,32 @@
  * PHP 5
  *
  * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
- * Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
+ * For full copyright and license information, please see the LICENSE.txt
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright     Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  * @link          http://cakephp.org CakePHP(tm) Project
  * @since         CakePHP(tm) v 1.2.0.5012
  * @license       MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
+
+App::uses('AppShell', 'Console/Command');
+App::uses('Controller', 'Controller');
 App::uses('ComponentCollection', 'Controller');
 App::uses('AclComponent', 'Controller/Component');
 App::uses('DbAcl', 'Model');
+App::uses('Hash', 'Utility');
 
 /**
- * Shell for ACL management.  This console is known to have issues with zend.ze1_compatibility_mode
- * being enabled.  Be sure to turn it off when using this shell.
+ * Shell for ACL management. This console is known to have issues with zend.ze1_compatibility_mode
+ * being enabled. Be sure to turn it off when using this shell.
  *
  * @package       Cake.Console.Command
  */
-class AclShell extends Shell {
+class AclShell extends AppShell {
 
 /**
  * Contains instance of AclComponent
@@ -66,12 +71,15 @@ class AclShell extends Shell {
 			$this->connection = $this->params['connection'];
 		}
 
-		if (!in_array(Configure::read('Acl.classname'), array('DbAcl', 'DB_ACL'))) {
+		$class = Configure::read('Acl.classname');
+		list($plugin, $class) = pluginSplit($class, true);
+		App::uses($class, $plugin . 'Controller/Component/Acl');
+		if (!in_array($class, array('DbAcl', 'DB_ACL')) && !is_subclass_of($class, 'DbAcl')) {
 			$out = "--------------------------------------------------\n";
 			$out .= __d('cake_console', 'Error: Your current Cake configuration is set to an ACL implementation other than DB.') . "\n";
 			$out .= __d('cake_console', 'Please change your core config to reflect your decision to use DbAcl before attempting to use this script') . "\n";
 			$out .= "--------------------------------------------------\n";
-			$out .= __d('cake_console', 'Current ACL Classname: %s', Configure::read('Acl.classname')) . "\n";
+			$out .= __d('cake_console', 'Current ACL Classname: %s', $class) . "\n";
 			$out .= "--------------------------------------------------\n";
 			$this->err($out);
 			$this->_stop();
@@ -88,7 +96,7 @@ class AclShell extends Shell {
 			if (!in_array($this->command, array('initdb'))) {
 				$collection = new ComponentCollection();
 				$this->Acl = new AclComponent($collection);
-				$controller = null;
+				$controller = new Controller();
 				$this->Acl->startup($controller);
 			}
 		}
@@ -114,14 +122,14 @@ class AclShell extends Shell {
 		$class = ucfirst($this->args[0]);
 		$parent = $this->parseIdentifier($this->args[1]);
 
-		if (!empty($parent) && $parent != '/' && $parent != 'root') {
+		if (!empty($parent) && $parent !== '/' && $parent !== 'root') {
 			$parent = $this->_getNodeId($class, $parent);
 		} else {
 			$parent = null;
 		}
 
 		$data = $this->parseIdentifier($this->args[2]);
-		if (is_string($data) && $data != '/') {
+		if (is_string($data) && $data !== '/') {
 			$data = array('alias' => $data);
 		} elseif (is_string($data)) {
 			$this->error(__d('cake_console', '/ can not be used as an alias!') . __d('cake_console', "	/ is the root, please supply a sub alias"));
@@ -197,7 +205,7 @@ class AclShell extends Shell {
 		}
 		$this->out(__d('cake_console', 'Path:'));
 		$this->hr();
-		for ($i = 0; $i < count($nodes); $i++) {
+		for ($i = 0, $len = count($nodes); $i < $len; $i++) {
 			$this->_outputNode($class, $nodes[$i], $i);
 		}
 	}
@@ -215,7 +223,7 @@ class AclShell extends Shell {
 		$data = $node[$class];
 		if ($data['alias']) {
 			$this->out($indent . "[" . $data['id'] . "] " . $data['alias']);
-		 } else {
+		} else {
 			$this->out($indent . "[" . $data['id'] . "] " . $data['model'] . '.' . $data['foreign_key']);
 		}
 	}
@@ -317,7 +325,7 @@ class AclShell extends Shell {
 		$this->hr();
 
 		$stack = array();
-		$last  = null;
+		$last = null;
 
 		foreach ($nodes as $n) {
 			$stack[] = $n;
@@ -363,8 +371,9 @@ class AclShell extends Shell {
 			'help' => __d('cake_console', 'Type of node to create.')
 		);
 
-		$parser->description(__d('cake_console', 'A console tool for managing the DbAcl'))
-			->addSubcommand('create', array(
+		$parser->description(
+			__d('cake_console', 'A console tool for managing the DbAcl')
+			)->addSubcommand('create', array(
 				'help' => __d('cake_console', 'Create a new ACL node'),
 				'parser' => array(
 					'description' => __d('cake_console', 'Creates a new ACL object <node> under the parent'),
@@ -485,7 +494,7 @@ class AclShell extends Shell {
 					)
 				)
 			))->addSubcommand('initdb', array(
-				'help' => __d('cake_console', 'Initialize the DbAcl tables. Uses this command : cake schema run create DbAcl')
+				'help' => __d('cake_console', 'Initialize the DbAcl tables. Uses this command : cake schema create DbAcl')
 			))->epilog(
 				array(
 					'Node and parent arguments can be in one of the following formats:',
@@ -493,7 +502,7 @@ class AclShell extends Shell {
 					' - <model>.<id> - The node will be bound to a specific record of the given model.',
 					'',
 					' - <alias> - The node will be given a string alias (or path, in the case of <parent>)',
-					"   i.e. 'John'.  When used with <parent>, this takes the form of an alias path,",
+					"   i.e. 'John'. When used with <parent>, this takes the form of an alias path,",
 					"   i.e. <group>/<subgroup>/<parent>.",
 					'',
 					"To add a node at the root level, enter 'root' or '/' as the <parent> parameter."
@@ -511,8 +520,9 @@ class AclShell extends Shell {
 		if (!isset($this->args[0]) || !isset($this->args[1])) {
 			return false;
 		}
-		extract($this->_dataVars($this->args[0]));
-		$key = is_numeric($this->args[1]) ? $secondary_id : 'alias';
+		$dataVars = $this->_dataVars($this->args[0]);
+		extract($dataVars);
+		$key = is_numeric($this->args[1]) ? $dataVars['secondary_id'] : 'alias';
 		$conditions = array($class . '.' . $key => $this->args[1]);
 		$possibility = $this->Acl->{$class}->find('all', compact('conditions'));
 		if (empty($possibility)) {
@@ -543,7 +553,7 @@ class AclShell extends Shell {
  * or an array of properties to use in AcoNode::node()
  *
  * @param string $class Class type you want (Aro/Aco)
- * @param mixed $identifier A mixed identifier for finding the node.
+ * @param string|array $identifier A mixed identifier for finding the node.
  * @return integer Integer of NodeId. Will trigger an error if nothing is found.
  */
 	protected function _getNodeId($class, $identifier) {
@@ -553,8 +563,9 @@ class AclShell extends Shell {
 				$identifier = var_export($identifier, true);
 			}
 			$this->error(__d('cake_console', 'Could not find node using reference "%s"', $identifier));
+			return;
 		}
-		return Set::extract($node, "0.{$class}.id");
+		return Hash::get($node, "0.{$class}.id");
 	}
 
 /**
@@ -574,12 +585,9 @@ class AclShell extends Shell {
 		if (is_string($aco)) {
 			$aco = $this->parseIdentifier($aco);
 		}
-		$action = null;
-		if (isset($this->args[2])) {
+		$action = '*';
+		if (isset($this->args[2]) && !in_array($this->args[2], array('', 'all'))) {
 			$action = $this->args[2];
-			if ($action == '' || $action == 'all') {
-				$action = '*';
-			}
 		}
 		return compact('aro', 'aco', 'action', 'aroName', 'acoName');
 	}
@@ -591,15 +599,16 @@ class AclShell extends Shell {
  * @return array Variables
  */
 	protected function _dataVars($type = null) {
-		if ($type == null) {
+		if (!$type) {
 			$type = $this->args[0];
 		}
 		$vars = array();
 		$class = ucwords($type);
-		$vars['secondary_id'] = (strtolower($class) == 'aro') ? 'foreign_key' : 'object_id';
+		$vars['secondary_id'] = (strtolower($class) === 'aro') ? 'foreign_key' : 'object_id';
 		$vars['data_name'] = $type;
 		$vars['table_name'] = $type . 's';
 		$vars['class'] = $class;
 		return $vars;
 	}
+
 }

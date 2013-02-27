@@ -5,12 +5,13 @@
  * PHP 5
  *
  * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
- * Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
+ * For full copyright and license information, please see the LICENSE.txt
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright     Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  * @link          http://cakephp.org CakePHP(tm) Project
  * @package       Cake.Model.Datasource.Database
  * @since         CakePHP(tm) v 0.10.5.1790
@@ -20,10 +21,12 @@
 App::uses('DboSource', 'Model/Datasource');
 
 /**
- * Dbo driver for SQLServer
+ * Dbo layer for Mircosoft's offical SQLServer driver
  *
- * A Dbo driver for SQLServer 2008 and higher.  Requires the `sqlsrv`
- * and `pdo_sqlsrv` extensions to be enabled.
+ * A Dbo layer for MS SQL Server 2005 and higher. Requires the
+ * `pdo_sqlsrv` extension to be enabled.
+ * 
+ * @link http://www.php.net/manual/en/ref.pdo-sqlsrv.php
  *
  * @package       Cake.Model.Datasource.Database
  */
@@ -51,7 +54,7 @@ class Sqlserver extends DboSource {
 	public $endQuote = "]";
 
 /**
- * Creates a map between field aliases and numeric indexes.  Workaround for the
+ * Creates a map between field aliases and numeric indexes. Workaround for the
  * SQL Server driver's 30-character column name limitation.
  *
  * @var array
@@ -75,7 +78,8 @@ class Sqlserver extends DboSource {
 		'host' => 'localhost\SQLEXPRESS',
 		'login' => '',
 		'password' => '',
-		'database' => 'cake'
+		'database' => 'cake',
+		'schema' => '',
 	);
 
 /**
@@ -85,27 +89,17 @@ class Sqlserver extends DboSource {
  */
 	public $columns = array(
 		'primary_key' => array('name' => 'IDENTITY (1, 1) NOT NULL'),
-		'string'	=> array('name' => 'nvarchar', 'limit' => '255'),
-		'text'		=> array('name' => 'nvarchar', 'limit' => 'MAX'),
-		'integer'	=> array('name' => 'int', 'formatter' => 'intval'),
-		'float'		=> array('name' => 'numeric', 'formatter' => 'floatval'),
-		'datetime'	=> array('name' => 'datetime', 'format' => 'Y-m-d H:i:s', 'formatter' => 'date'),
+		'string' => array('name' => 'nvarchar', 'limit' => '255'),
+		'text' => array('name' => 'nvarchar', 'limit' => 'MAX'),
+		'integer' => array('name' => 'int', 'formatter' => 'intval'),
+		'biginteger' => array('name' => 'bigint'),
+		'float' => array('name' => 'numeric', 'formatter' => 'floatval'),
+		'datetime' => array('name' => 'datetime', 'format' => 'Y-m-d H:i:s', 'formatter' => 'date'),
 		'timestamp' => array('name' => 'timestamp', 'format' => 'Y-m-d H:i:s', 'formatter' => 'date'),
-		'time'		=> array('name' => 'datetime', 'format' => 'H:i:s', 'formatter' => 'date'),
-		'date'		=> array('name' => 'datetime', 'format' => 'Y-m-d', 'formatter' => 'date'),
-		'binary'	=> array('name' => 'varbinary'),
-		'boolean'	=> array('name' => 'bit')
-	);
-
-/**
- * Index of basic SQL commands
- *
- * @var array
- */
-	protected $_commands = array(
-		'begin'    => 'BEGIN TRANSACTION',
-		'commit'   => 'COMMIT',
-		'rollback' => 'ROLLBACK'
+		'time' => array('name' => 'datetime', 'format' => 'H:i:s', 'formatter' => 'date'),
+		'date' => array('name' => 'datetime', 'format' => 'Y-m-d', 'formatter' => 'date'),
+		'binary' => array('name' => 'varbinary'),
+		'boolean' => array('name' => 'bit')
 	);
 
 /**
@@ -113,14 +107,6 @@ class Sqlserver extends DboSource {
  * which lacks proper limit/offset support.
  */
 	const ROW_COUNTER = '_cake_page_rownum_';
-
-/**
- * The version of SQLServer being used.  If greater than 11
- * Normal limit offset statements will be used
- *
- * @var string
- */
-	protected $_version;
 
 /**
  * Connects to the database using options in the given configuration array.
@@ -147,10 +133,12 @@ class Sqlserver extends DboSource {
 			);
 			$this->connected = true;
 		} catch (PDOException $e) {
-			throw new MissingConnectionException(array('class' => $e->getMessage()));
+			throw new MissingConnectionException(array(
+				'class' => get_class($this),
+				'message' => $e->getMessage()
+			));
 		}
 
-		$this->_version = $this->_connection->getAttribute(PDO::ATTR_SERVER_VERSION);
 		return $this->connected;
 	}
 
@@ -167,14 +155,14 @@ class Sqlserver extends DboSource {
  * Returns an array of sources (tables) in the database.
  *
  * @param mixed $data
- * @return array Array of tablenames in the database
+ * @return array Array of table names in the database
  */
 	public function listSources($data = null) {
 		$cache = parent::listSources();
 		if ($cache !== null) {
 			return $cache;
 		}
-		$result = $this->_execute("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE='BASE TABLE'");
+		$result = $this->_execute("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES");
 
 		if (!$result) {
 			$result->closeCursor();
@@ -182,7 +170,7 @@ class Sqlserver extends DboSource {
 		} else {
 			$tables = array();
 
-			while ($line = $result->fetch()) {
+			while ($line = $result->fetch(PDO::FETCH_NUM)) {
 				$tables[] = $line[0];
 			}
 
@@ -200,8 +188,9 @@ class Sqlserver extends DboSource {
  * @throws CakeException
  */
 	public function describe($model) {
-		$cache = parent::describe($model);
-		if ($cache != null) {
+		$table = $this->fullTableName($model, false);
+		$cache = parent::describe($table);
+		if ($cache) {
 			return $cache;
 		}
 		$fields = array();
@@ -222,7 +211,7 @@ class Sqlserver extends DboSource {
 			throw new CakeException(__d('cake_dev', 'Could not describe table for %s', $table));
 		}
 
-		foreach ($cols as $column) {
+		while ($column = $cols->fetch(PDO::FETCH_OBJ)) {
 			$field = $column->Field;
 			$fields[$field] = array(
 				'type' => $this->column($column),
@@ -238,7 +227,7 @@ class Sqlserver extends DboSource {
 				$this->value($fields[$field]['default'], $fields[$field]['type']);
 			}
 
-			if ($fields[$field]['key'] !== false && $fields[$field]['type'] == 'integer') {
+			if ($fields[$field]['key'] !== false && $fields[$field]['type'] === 'integer') {
 				$fields[$field]['length'] = 11;
 			} elseif ($fields[$field]['key'] === false) {
 				unset($fields[$field]['key']);
@@ -246,7 +235,7 @@ class Sqlserver extends DboSource {
 			if (in_array($fields[$field]['type'], array('date', 'time', 'datetime', 'timestamp'))) {
 				$fields[$field]['length'] = null;
 			}
-			if ($fields[$field]['type'] == 'float' && !empty($column->Size)) {
+			if ($fields[$field]['type'] === 'float' && !empty($column->Size)) {
 				$fields[$field]['length'] = $fields[$field]['length'] . ',' . $column->Size;
 			}
 		}
@@ -255,17 +244,16 @@ class Sqlserver extends DboSource {
 		return $fields;
 	}
 
-
 /**
  * Generates the fields list of an SQL query.
  *
  * @param Model $model
- * @param string $alias Alias tablename
+ * @param string $alias Alias table name
  * @param array $fields
  * @param boolean $quote
  * @return array
  */
-	public function fields($model, $alias = null, $fields = array(), $quote = true) {
+	public function fields(Model $model, $alias = null, $fields = array(), $quote = true) {
 		if (empty($alias)) {
 			$alias = $model->alias;
 		}
@@ -283,7 +271,7 @@ class Sqlserver extends DboSource {
 				}
 
 				if (!preg_match('/\s+AS\s+/i', $fields[$i])) {
-					if (substr($fields[$i], -1) == '*') {
+					if (substr($fields[$i], -1) === '*') {
 						if (strpos($fields[$i], '.') !== false && $fields[$i] != $alias . '.*') {
 							$build = explode('.', $fields[$i]);
 							$AssociatedModel = $model->{$build[0]};
@@ -298,18 +286,23 @@ class Sqlserver extends DboSource {
 
 					if (strpos($fields[$i], '.') === false) {
 						$this->_fieldMappings[$alias . '__' . $fields[$i]] = $alias . '.' . $fields[$i];
-						$fieldName  = $this->name($alias . '.' . $fields[$i]);
+						$fieldName = $this->name($alias . '.' . $fields[$i]);
 						$fieldAlias = $this->name($alias . '__' . $fields[$i]);
 					} else {
 						$build = explode('.', $fields[$i]);
-						$this->_fieldMappings[$build[0] . '__' .$build[1]] = $fields[$i];
-						$fieldName  = $this->name($build[0] . '.' . $build[1]);
-						$fieldAlias = $this->name(preg_replace("/^\[(.+)\]$/", "$1", $build[0]) . '__' . $build[1]);
+						$build[0] = trim($build[0], '[]');
+						$build[1] = trim($build[1], '[]');
+						$name = $build[0] . '.' . $build[1];
+						$alias = $build[0] . '__' . $build[1];
+
+						$this->_fieldMappings[$alias] = $name;
+						$fieldName = $this->name($name);
+						$fieldAlias = $this->name($alias);
 					}
-					if ($model->getColumnType($fields[$i]) == 'datetime') {
+					if ($model->getColumnType($fields[$i]) === 'datetime') {
 						$fieldName = "CONVERT(VARCHAR(20), {$fieldName}, 20)";
 					}
-					$fields[$i] =  "{$fieldName} AS {$fieldAlias}";
+					$fields[$i] = "{$fieldName} AS {$fieldAlias}";
 				}
 				$result[] = $prepend . $fields[$i];
 			}
@@ -387,7 +380,7 @@ class Sqlserver extends DboSource {
 			}
 			$rt .= ' ' . $limit;
 			if (is_int($offset) && $offset > 0) {
-				$rt = ' OFFSET ' . intval($offset)  . ' ROWS FETCH FIRST ' . intval($limit) . ' ROWS ONLY';
+				$rt = ' OFFSET ' . intval($offset) . ' ROWS FETCH FIRST ' . intval($limit) . ' ROWS ONLY';
 			}
 			return $rt;
 		}
@@ -409,14 +402,17 @@ class Sqlserver extends DboSource {
 			$col = $real->Type;
 		}
 
-		if ($col == 'datetime2') {
+		if ($col === 'datetime2') {
 			return 'datetime';
 		}
 		if (in_array($col, array('date', 'time', 'datetime', 'timestamp'))) {
 			return $col;
 		}
-		if ($col == 'bit') {
+		if ($col === 'bit') {
 			return 'boolean';
+		}
+		if (strpos($col, 'bigint') !== false) {
+			return 'biginteger';
 		}
 		if (strpos($col, 'int') !== false) {
 			return 'integer';
@@ -430,7 +426,7 @@ class Sqlserver extends DboSource {
 		if (strpos($col, 'text') !== false) {
 			return 'text';
 		}
-		if (strpos($col, 'binary') !== false || $col == 'image') {
+		if (strpos($col, 'binary') !== false || $col === 'image') {
 			return 'binary';
 		}
 		if (in_array($col, array('float', 'real', 'decimal', 'numeric'))) {
@@ -485,7 +481,7 @@ class Sqlserver extends DboSource {
 			} else {
 				$map = array(0, $name);
 			}
-			$map[] = ($column['sqlsrv:decl_type'] == 'bit') ? 'boolean' : $column['native_type'];
+			$map[] = ($column['sqlsrv:decl_type'] === 'bit') ? 'boolean' : $column['native_type'];
 			$this->map[$index++] = $map;
 		}
 	}
@@ -514,7 +510,7 @@ class Sqlserver extends DboSource {
 				}
 
 				// For older versions use the subquery version of pagination.
-				if (version_compare($this->_version, '11', '<') && preg_match('/FETCH\sFIRST\s+([0-9]+)/i', $limit, $offset)) {
+				if (version_compare($this->getVersion(), '11', '<') && preg_match('/FETCH\sFIRST\s+([0-9]+)/i', $limit, $offset)) {
 					preg_match('/OFFSET\s*(\d+)\s*.*?(\d+)\s*ROWS/', $limit, $limitOffset);
 
 					$limit = 'TOP ' . intval($limitOffset[2]);
@@ -552,10 +548,8 @@ class Sqlserver extends DboSource {
 					}
 				}
 				return "CREATE TABLE {$table} (\n{$columns});\n{$indexes}";
-			break;
 			default:
 				return parent::renderStatement($type, $data);
-			break;
 		}
 	}
 
@@ -585,6 +579,7 @@ class Sqlserver extends DboSource {
 				return parent::value($data, $column);
 		}
 	}
+
 /**
  * Returns an array of all result rows for a given SQL query.
  * Returns false if no rows matched.
@@ -607,7 +602,7 @@ class Sqlserver extends DboSource {
  * @return mixed
  */
 	public function fetchResult() {
-		if ($row = $this->_result->fetch()) {
+		if ($row = $this->_result->fetch(PDO::FETCH_NUM)) {
 			$resultRow = array();
 			foreach ($this->map as $col => $meta) {
 				list($table, $column, $type) = $meta;
@@ -635,7 +630,7 @@ class Sqlserver extends DboSource {
  */
 	public function insertMulti($table, $fields, $values) {
 		$primaryKey = $this->_getPrimaryKey($table);
-		$hasPrimaryKey = $primaryKey != null && (
+		$hasPrimaryKey = $primaryKey && (
 			(is_array($fields) && in_array($primaryKey, $fields)
 			|| (is_string($fields) && strpos($fields, $this->startQuote . $primaryKey . $this->endQuote) !== false))
 		);
@@ -644,14 +639,7 @@ class Sqlserver extends DboSource {
 			$this->_execute('SET IDENTITY_INSERT ' . $this->fullTableName($table) . ' ON');
 		}
 
-		$table = $this->fullTableName($table);
-		$fields = implode(', ', array_map(array(&$this, 'name'), $fields));
-		$this->begin();
-		foreach ($values as $value) {
-			$holder = implode(', ', array_map(array(&$this, 'value'), $value));
-			$this->_execute("INSERT INTO {$table} ({$fields}) VALUES ({$holder})");
-		}
-		$this->commit();
+		parent::insertMulti($table, $fields, $values);
 
 		if ($hasPrimaryKey) {
 			$this->_execute('SET IDENTITY_INSERT ' . $this->fullTableName($table) . ' OFF');
@@ -661,12 +649,15 @@ class Sqlserver extends DboSource {
 /**
  * Generate a database-native column schema string
  *
- * @param array $column An array structured like the following: array('name'=>'value', 'type'=>'value'[, options]),
+ * @param array $column An array structured like the
+ *   following: array('name'=>'value', 'type'=>'value'[, options]),
  *   where options can be 'default', 'length', or 'key'.
  * @return string
  */
 	public function buildColumn($column) {
-		$result = preg_replace('/(int|integer)\([0-9]+\)/i', '$1', parent::buildColumn($column));
+		$result = parent::buildColumn($column);
+		$result = preg_replace('/(bigint|int|integer)\([0-9]+\)/i', '$1', $result);
+		$result = preg_replace('/(bit)\([0-9]+\)/i', '$1', $result);
 		if (strpos($result, 'DEFAULT NULL') !== false) {
 			if (isset($column['default']) && $column['default'] === '') {
 				$result = str_replace('DEFAULT NULL', "DEFAULT ''", $result);
@@ -692,9 +683,9 @@ class Sqlserver extends DboSource {
 		$join = array();
 
 		foreach ($indexes as $name => $value) {
-			if ($name == 'PRIMARY') {
+			if ($name === 'PRIMARY') {
 				$join[] = 'PRIMARY KEY (' . $this->name($value['column']) . ')';
-			} else if (isset($value['unique']) && $value['unique']) {
+			} elseif (isset($value['unique']) && $value['unique']) {
 				$out = "ALTER TABLE {$table} ADD CONSTRAINT {$name} UNIQUE";
 
 				if (is_array($value['column'])) {
@@ -712,16 +703,13 @@ class Sqlserver extends DboSource {
 /**
  * Makes sure it will return the primary key
  *
- * @param mixed $model Model instance of table name
+ * @param Model|string $model Model instance of table name
  * @return string
  */
 	protected function _getPrimaryKey($model) {
-		if (!is_object($model)) {
-			$model = new Model(false, $model);
-		}
 		$schema = $this->describe($model);
 		foreach ($schema as $field => $props) {
-			if (isset($props['key']) && $props['key'] == 'primary') {
+			if (isset($props['key']) && $props['key'] === 'primary') {
 				return $field;
 			}
 		}
@@ -742,18 +730,20 @@ class Sqlserver extends DboSource {
 		}
 		return $affected;
 	}
+
 /**
  * Executes given SQL statement.
  *
  * @param string $sql SQL statement
  * @param array $params list of params to be bound to query (supported only in select)
  * @param array $prepareOptions Options to be used in the prepare statement
- * @return mixed PDOStatement if query executes with no problem, true as the result of a succesfull, false on error
- * query returning no rows, suchs as a CREATE statement, false otherwise
+ * @return mixed PDOStatement if query executes with no problem, true as the result of a successful, false on error
+ * query returning no rows, such as a CREATE statement, false otherwise
+ * @throws PDOException
  */
 	protected function _execute($sql, $params = array(), $prepareOptions = array()) {
 		$this->_lastAffected = false;
-		if (strncasecmp($sql, 'SELECT', 6) == 0) {
+		if (strncasecmp($sql, 'SELECT', 6) === 0 || preg_match('/^EXEC(?:UTE)?\s/mi', $sql) > 0) {
 			$prepareOptions += array(PDO::ATTR_CURSOR => PDO::CURSOR_SCROLL);
 			return parent::_execute($sql, $params, $prepareOptions);
 		}
@@ -777,22 +767,22 @@ class Sqlserver extends DboSource {
 	}
 
 /**
- * Generate a "drop table" statement for the given Schema object
+ * Generate a "drop table" statement for the given table
  *
- * @param CakeSchema $schema An instance of a subclass of CakeSchema
- * @param string $table Optional.  If specified only the table name given will be generated.
- *   Otherwise, all tables defined in the schema are generated.
- * @return string
+ * @param type $table Name of the table to drop
+ * @return string Drop table SQL statement
  */
-	public function dropSchema(CakeSchema $schema, $table = null) {
-		$out = '';
-		foreach ($schema->tables as $curTable => $columns) {
-			if (!$table || $table == $curTable) {
-				$t =  $this->fullTableName($curTable);
-				$out .= "IF OBJECT_ID('" . $this->fullTableName($curTable, false). "', 'U') IS NOT NULL DROP TABLE " .  $this->fullTableName($curTable) . ";\n";
-			}
-		}
-		return $out;
+	protected function _dropTable($table) {
+		return "IF OBJECT_ID('" . $this->fullTableName($table, false) . "', 'U') IS NOT NULL DROP TABLE " . $this->fullTableName($table) . ";";
+	}
+
+/**
+ * Gets the schema name
+ *
+ * @return string The schema name
+ */
+	public function getSchemaName() {
+		return $this->config['schema'];
 	}
 
 }

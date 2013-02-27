@@ -7,28 +7,31 @@
  * PHP versions 5
  *
  * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
- * Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
+ * For full copyright and license information, please see the LICENSE.txt
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright     Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  * @link          http://cakephp.org CakePHP(tm) Project
  * @package       Cake.Model
  * @since         CakePHP(tm) v 0.10.0.0
  * @license       MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 
-/**
- * Included libs
- */
 App::uses('ClassRegistry', 'Utility');
 App::uses('Validation', 'Utility');
 App::uses('String', 'Utility');
+App::uses('Hash', 'Utility');
 App::uses('BehaviorCollection', 'Model');
 App::uses('ModelBehavior', 'Model');
+App::uses('ModelValidator', 'Model');
 App::uses('ConnectionManager', 'Model');
 App::uses('Xml', 'Utility');
+App::uses('CakeEvent', 'Event');
+App::uses('CakeEventListener', 'Event');
+App::uses('CakeEventManager', 'Event');
 
 /**
  * Object-relational mapper.
@@ -41,7 +44,7 @@ App::uses('Xml', 'Utility');
  * @package       Cake.Model
  * @link          http://book.cakephp.org/2.0/en/models.html
  */
-class Model extends Object {
+class Model extends Object implements CakeEventListener {
 
 /**
  * The name of the DataSource connection that this Model uses
@@ -58,7 +61,7 @@ class Model extends Object {
  * Custom database table name, or null/false if no table association is desired.
  *
  * @var string
- * @link http://book.cakephp.org/2.0/en/models/model-attributes.html#useTable
+ * @link http://book.cakephp.org/2.0/en/models/model-attributes.html#usetable
  */
 	public $useTable = null;
 
@@ -68,7 +71,7 @@ class Model extends Object {
  * This field is also used in `find('list')` when called with no extra parameters in the fields list
  *
  * @var string
- * @link http://book.cakephp.org/2.0/en/models/model-attributes.html#displayField
+ * @link http://book.cakephp.org/2.0/en/models/model-attributes.html#displayfield
  */
 	public $displayField = null;
 
@@ -87,6 +90,14 @@ class Model extends Object {
  * @link http://book.cakephp.org/2.0/en/models/model-attributes.html#data
  */
 	public $data = array();
+
+/**
+ * Holds physical schema/database name for this model. Automatically set during Model creation.
+ *
+ * @var string
+ * @access public
+ */
+	public $schemaName = null;
 
 /**
  * Table name for this Model.
@@ -210,7 +221,6 @@ class Model extends Object {
  */
 	public $validationErrors = array();
 
-
 /**
  * Name of the validation string domain to use when translating validation errors.
  *
@@ -225,6 +235,13 @@ class Model extends Object {
  * @link http://book.cakephp.org/2.0/en/models/model-attributes.html#tableprefix
  */
 	public $tablePrefix = null;
+
+/**
+ * Plugin model belongs to.
+ *
+ * @var string
+ */
+	public $plugin = null;
 
 /**
  * Name of the model.
@@ -249,11 +266,11 @@ class Model extends Object {
 	public $tableToModel = array();
 
 /**
- * Whether or not to cache queries for this model.  This enables in-memory
+ * Whether or not to cache queries for this model. This enables in-memory
  * caching only, the results are not stored beyond the current request.
  *
  * @var boolean
- * @link http://book.cakephp.org/2.0/en/models/model-attributes.html#cacheQueries
+ * @link http://book.cakephp.org/2.0/en/models/model-attributes.html#cachequeries
  */
 	public $cacheQueries = false;
 
@@ -279,13 +296,13 @@ class Model extends Object {
  * ### Possible keys in association
  *
  * - `className`: the classname of the model being associated to the current model.
- *   If you’re defining a ‘Profile belongsTo User’ relationship, the className key should equal ‘User.’
+ *   If you're defining a 'Profile belongsTo User' relationship, the className key should equal 'User.'
  * - `foreignKey`: the name of the foreign key found in the current model. This is
  *   especially handy if you need to define multiple belongsTo relationships. The default
- *   value for this key is the underscored, singular name of the other model, suffixed with ‘_id’.
- * - `conditions`: An SQL fragment used to filter related model records. It’s good
- *   practice to use model names in SQL fragments: “User.active = 1” is always
- *   better than just “active = 1.”
+ *   value for this key is the underscored, singular name of the other model, suffixed with '_id'.
+ * - `conditions`: An SQL fragment used to filter related model records. It's good
+ *   practice to use model names in SQL fragments: 'User.active = 1' is always
+ *   better than just 'active = 1.'
  * - `type`: the type of the join to use in the SQL query, default is LEFT which
  *   may not fit your needs in all situations, INNER may be helpful when you want
  *   everything from your main and associated models or nothing at all!(effective
@@ -294,7 +311,7 @@ class Model extends Object {
  *   fetched. Returns all fields by default.
  * - `order`: An SQL fragment that defines the sorting order for the returned associated rows.
  * - `counterCache`: If set to true the associated Model will automatically increase or
- *   decrease the “[singular_model_name]_count” field in the foreign table whenever you do
+ *   decrease the "[singular_model_name]_count" field in the foreign table whenever you do
  *   a save() or delete(). If its a string then its the field name to use. The value in the
  *   counter field represents the number of related rows.
  * - `counterScope`: Optional conditions array to use for updating counter cache field.
@@ -326,18 +343,18 @@ class Model extends Object {
  * ### Possible keys in association
  *
  * - `className`: the classname of the model being associated to the current model.
- *   If you’re defining a ‘User hasOne Profile’ relationship, the className key should equal ‘Profile.’
+ *   If you're defining a 'User hasOne Profile' relationship, the className key should equal 'Profile.'
  * - `foreignKey`: the name of the foreign key found in the other model. This is
  *   especially handy if you need to define multiple hasOne relationships.
  *   The default value for this key is the underscored, singular name of the
- *   current model, suffixed with ‘_id’. In the example above it would default to 'user_id'.
- * - `conditions`: An SQL fragment used to filter related model records. It’s good
- *   practice to use model names in SQL fragments: “Profile.approved = 1” is
- *   always better than just “approved = 1.”
+ *   current model, suffixed with '_id'. In the example above it would default to 'user_id'.
+ * - `conditions`: An SQL fragment used to filter related model records. It's good
+ *   practice to use model names in SQL fragments: "Profile.approved = 1" is
+ *   always better than just "approved = 1."
  * - `fields`: A list of fields to be retrieved when the associated model data is
  *   fetched. Returns all fields by default.
  * - `order`: An SQL fragment that defines the sorting order for the returned associated rows.
- * - `dependent`: When the dependent key is set to true, and the model’s delete()
+ * - `dependent`: When the dependent key is set to true, and the model's delete()
  *   method is called with the cascade parameter set to true, associated model
  *   records are also deleted. In this case we set it true so that deleting a
  *   User will also delete her associated Profile.
@@ -369,13 +386,13 @@ class Model extends Object {
  * ### Possible keys in association
  *
  * - `className`: the classname of the model being associated to the current model.
- *   If you’re defining a ‘User hasMany Comment’ relationship, the className key should equal ‘Comment.’
+ *   If you're defining a 'User hasMany Comment' relationship, the className key should equal 'Comment.'
  * - `foreignKey`: the name of the foreign key found in the other model. This is
  *   especially handy if you need to define multiple hasMany relationships. The default
- *   value for this key is the underscored, singular name of the actual model, suffixed with ‘_id’.
- * - `conditions`: An SQL fragment used to filter related model records. It’s good
- *   practice to use model names in SQL fragments: “Comment.status = 1” is always
- *   better than just “status = 1.”
+ *   value for this key is the underscored, singular name of the actual model, suffixed with '_id'.
+ * - `conditions`: An SQL fragment used to filter related model records. It's good
+ *   practice to use model names in SQL fragments: "Comment.status = 1" is always
+ *   better than just "status = 1."
  * - `fields`: A list of fields to be retrieved when the associated model data is
  *   fetched. Returns all fields by default.
  * - `order`: An SQL fragment that defines the sorting order for the returned associated rows.
@@ -420,7 +437,7 @@ class Model extends Object {
  * ### Possible keys in association
  *
  * - `className`: the classname of the model being associated to the current model.
- *   If you're defining a ‘Recipe HABTM Tag' relationship, the className key should equal ‘Tag.'
+ *   If you're defining a 'Recipe HABTM Tag' relationship, the className key should equal 'Tag.'
  * - `joinTable`: The name of the join table used in this association (if the
  *   current table doesn't adhere to the naming convention for HABTM join tables).
  * - `with`: Defines the name of the model for the join table. By default CakePHP
@@ -430,14 +447,15 @@ class Model extends Object {
  * - `foreignKey`: the name of the foreign key found in the current model.
  *   This is especially handy if you need to define multiple HABTM relationships.
  *   The default value for this key is the underscored, singular name of the
- *   current model, suffixed with ‘_id'.
+ *   current model, suffixed with '_id'.
  * - `associationForeignKey`: the name of the foreign key found in the other model.
  *   This is especially handy if you need to define multiple HABTM relationships.
  *   The default value for this key is the underscored, singular name of the other
- *   model, suffixed with ‘_id'.
+ *   model, suffixed with '_id'.
  * - `unique`: If true (default value) cake will first delete existing relationship
  *   records in the foreign keys table before inserting new ones, when updating a
  *   record. So existing associations need to be passed again when updating.
+ *   To prevent deletion of existing relationship records, set this key to a string 'keepExisting'.
  * - `conditions`: An SQL fragment used to filter related model records. It's good
  *   practice to use model names in SQL fragments: "Comment.status = 1" is always
  *   better than just "status = 1."
@@ -516,7 +534,7 @@ class Model extends Object {
 	public $order = null;
 
 /**
- * Array of virtual fields this model has.  Virtual fields are aliased
+ * Array of virtual fields this model has. Virtual fields are aliased
  * SQL expressions. Fields added to this property will be read as other fields in a model
  * but will not be saveable.
  *
@@ -536,7 +554,7 @@ class Model extends Object {
  */
 	protected $_associationKeys = array(
 		'belongsTo' => array('className', 'foreignKey', 'conditions', 'fields', 'order', 'counterCache'),
-		'hasOne' => array('className', 'foreignKey','conditions', 'fields','order', 'dependent'),
+		'hasOne' => array('className', 'foreignKey', 'conditions', 'fields', 'order', 'dependent'),
 		'hasMany' => array('className', 'foreignKey', 'conditions', 'fields', 'order', 'limit', 'offset', 'dependent', 'exclusive', 'finderQuery', 'counterQuery'),
 		'hasAndBelongsToMany' => array('className', 'joinTable', 'with', 'foreignKey', 'associationForeignKey', 'conditions', 'fields', 'order', 'limit', 'offset', 'unique', 'finderQuery', 'deleteQuery', 'insertQuery')
 	);
@@ -547,6 +565,8 @@ class Model extends Object {
  * @var array
  */
 	protected $_associations = array('belongsTo', 'hasOne', 'hasMany', 'hasAndBelongsToMany');
+
+// @codingStandardsIgnoreStart
 
 /**
  * Holds model associations temporarily to allow for dynamic (un)binding.
@@ -576,6 +596,8 @@ class Model extends Object {
  */
 	public $__backContainableAssociation = array();
 
+// @codingStandardsIgnoreEnd
+
 /**
  * The ID of the model record that was last inserted.
  *
@@ -602,6 +624,21 @@ class Model extends Object {
 	);
 
 /**
+ * Instance of the CakeEventManager this model is using
+ * to dispatch inner events.
+ *
+ * @var CakeEventManager
+ */
+	protected $_eventManager = null;
+
+/**
+ * Instance of the ModelValidator
+ *
+ * @var ModelValidator
+ */
+	protected $_validator = null;
+
+/**
  * Constructor. Binds the model's database table to the object.
  *
  * If `$id` is an array it can be used to pass several options into the model.
@@ -626,10 +663,10 @@ class Model extends Object {
  * $Post = new Model(array('table' => 'posts', 'name' => 'Post', 'ds' => 'connection2'));
  * }}}
  *
- * Would create a model attached to the posts table on connection2.  Dynamic model creation is useful
+ * Would create a model attached to the posts table on connection2. Dynamic model creation is useful
  * when you want a model object that contains no associations or attached behaviors.
  *
- * @param mixed $id Set this ID for this model on startup, can also be an array of options, see above.
+ * @param integer|string|array $id Set this ID for this model on startup, can also be an array of options, see above.
  * @param string $table Name of database table to use.
  * @param string $ds DataSource connection name.
  */
@@ -640,10 +677,14 @@ class Model extends Object {
 			extract(array_merge(
 				array(
 					'id' => $this->id, 'table' => $this->useTable, 'ds' => $this->useDbConfig,
-					'name' => $this->name, 'alias' => $this->alias
+					'name' => $this->name, 'alias' => $this->alias, 'plugin' => $this->plugin
 				),
 				$id
 			));
+		}
+
+		if ($this->plugin === null) {
+			$this->plugin = (isset($plugin) ? $plugin : $this->plugin);
 		}
 
 		if ($this->name === null) {
@@ -674,16 +715,15 @@ class Model extends Object {
 		}
 
 		if (is_subclass_of($this, 'AppModel')) {
-			$merge = array('findMethods');
-			if ($this->actsAs !== null || $this->actsAs !== false) {
-				$merge[] = 'actsAs';
-			}
+			$merge = array('actsAs', 'findMethods');
 			$parentClass = get_parent_class($this);
 			if ($parentClass !== 'AppModel') {
 				$this->_mergeVars($merge, $parentClass);
 			}
 			$this->_mergeVars($merge, 'AppModel');
 		}
+		$this->_mergeVars(array('findMethods'), 'Model');
+
 		$this->Behaviors = new BehaviorCollection();
 
 		if ($this->useTable !== false) {
@@ -692,7 +732,7 @@ class Model extends Object {
 				$this->useTable = Inflector::tableize($this->name);
 			}
 
-			if ($this->displayField == null) {
+			if (!$this->displayField) {
 				unset($this->displayField);
 			}
 			$this->table = $this->useTable;
@@ -700,8 +740,48 @@ class Model extends Object {
 		} elseif ($this->table === false) {
 			$this->table = Inflector::tableize($this->name);
 		}
+
+		if ($this->tablePrefix === null) {
+			unset($this->tablePrefix);
+		}
+
 		$this->_createLinks();
 		$this->Behaviors->init($this->alias, $this->actsAs);
+	}
+
+/**
+ * Returns a list of all events that will fire in the model during it's lifecycle.
+ * You can override this function to add you own listener callbacks
+ *
+ * @return array
+ */
+	public function implementedEvents() {
+		return array(
+			'Model.beforeFind' => array('callable' => 'beforeFind', 'passParams' => true),
+			'Model.afterFind' => array('callable' => 'afterFind', 'passParams' => true),
+			'Model.beforeValidate' => array('callable' => 'beforeValidate', 'passParams' => true),
+			'Model.afterValidate' => array('callable' => 'afterValidate'),
+			'Model.beforeSave' => array('callable' => 'beforeSave', 'passParams' => true),
+			'Model.afterSave' => array('callable' => 'afterSave', 'passParams' => true),
+			'Model.beforeDelete' => array('callable' => 'beforeDelete', 'passParams' => true),
+			'Model.afterDelete' => array('callable' => 'afterDelete'),
+		);
+	}
+
+/**
+ * Returns the CakeEventManager manager instance that is handling any callbacks.
+ * You can use this instance to register any new listeners or callbacks to the
+ * model events, or create your own events and trigger them at will.
+ *
+ * @return CakeEventManager
+ */
+	public function getEventManager() {
+		if (empty($this->_eventManager)) {
+			$this->_eventManager = new CakeEventManager();
+			$this->_eventManager->attach($this->Behaviors);
+			$this->_eventManager->attach($this);
+		}
+		return $this->_eventManager;
 	}
 
 /**
@@ -722,9 +802,9 @@ class Model extends Object {
 	}
 
 /**
- * Handles the lazy loading of model associations by lookin in the association arrays for the requested variable
+ * Handles the lazy loading of model associations by looking in the association arrays for the requested variable
  *
- * @param string $name variable tested for existance in class
+ * @param string $name variable tested for existence in class
  * @return boolean true if the variable exists (if is a not loaded model association it will be created), false otherwise
  */
 	public function __isset($name) {
@@ -734,12 +814,11 @@ class Model extends Object {
 			if (isset($name, $this->{$type}[$name])) {
 				$className = empty($this->{$type}[$name]['className']) ? $name : $this->{$type}[$name]['className'];
 				break;
-			}
-			elseif (isset($name, $this->__backAssociation[$type][$name])) {
+			} elseif (isset($name, $this->__backAssociation[$type][$name])) {
 				$className = empty($this->__backAssociation[$type][$name]['className']) ?
 					$name : $this->__backAssociation[$type][$name]['className'];
 				break;
-			} else if ($type == 'hasAndBelongsToMany') {
+			} elseif ($type === 'hasAndBelongsToMany') {
 				foreach ($this->{$type} as $k => $relation) {
 					if (empty($relation['with'])) {
 						continue;
@@ -761,7 +840,7 @@ class Model extends Object {
 					}
 				}
 			}
-	    }
+		}
 
 		if (!$className) {
 			return false;
@@ -799,6 +878,13 @@ class Model extends Object {
 		if ($name === 'displayField') {
 			return $this->displayField = $this->hasField(array('title', 'name', $this->primaryKey));
 		}
+		if ($name === 'tablePrefix') {
+			$this->setDataSource();
+			if (property_exists($this, 'tablePrefix') && !empty($this->tablePrefix)) {
+				return $this->tablePrefix;
+			}
+			return $this->tablePrefix = null;
+		}
 		if (isset($this->{$name})) {
 			return $this->{$name};
 		}
@@ -835,7 +921,6 @@ class Model extends Object {
 					$assocName = $value;
 					$value = array();
 				}
-				$modelName = $assocName;
 				$this->{$assoc}[$assocName] = $value;
 				if (property_exists($this, $assocName)) {
 					unset($this->{$assocName});
@@ -904,13 +989,13 @@ class Model extends Object {
 					$plugin = null;
 
 					if (is_numeric($assoc)) {
-						unset ($this->{$type}[$assoc]);
+						unset($this->{$type}[$assoc]);
 						$assoc = $value;
 						$value = array();
 
 						if (strpos($assoc, '.') !== false) {
-							list($plugin, $assoc) = pluginSplit($assoc);
-							$this->{$type}[$assoc] = array('className' => $plugin. '.' . $assoc);
+							list($plugin, $assoc) = pluginSplit($assoc, true);
+							$this->{$type}[$assoc] = array('className' => $plugin . $assoc);
 						} else {
 							$this->{$type}[$assoc] = $value;
 						}
@@ -976,7 +1061,7 @@ class Model extends Object {
 					break;
 
 					case 'foreignKey':
-						$data = (($type == 'belongsTo') ? Inflector::underscore($assocKey) : Inflector::singularize($this->table)) . '_id';
+						$data = (($type === 'belongsTo') ? Inflector::underscore($assocKey) : Inflector::singularize($this->table)) . '_id';
 					break;
 
 					case 'associationForeignKey':
@@ -1013,7 +1098,7 @@ class Model extends Object {
 	}
 
 /**
- * Sets a custom table for your controller class. Used by your controller to select a database table.
+ * Sets a custom table for your model class. Used by your controller to select a database table.
  *
  * @param string $tableName Name of the custom table
  * @throws MissingTableException when database table $tableName is not found on data source
@@ -1029,7 +1114,8 @@ class Model extends Object {
 			if (is_array($sources) && !in_array(strtolower($this->tablePrefix . $tableName), array_map('strtolower', $sources))) {
 				throw new MissingTableException(array(
 					'table' => $this->tablePrefix . $tableName,
-					'class' => $this->alias
+					'class' => $this->alias,
+					'ds' => $this->useDbConfig,
 				));
 			}
 			$this->_schema = null;
@@ -1048,7 +1134,7 @@ class Model extends Object {
  * (Alternative indata: two strings, which are mangled to
  * a one-item, two-dimensional array using $one for a key and $two as its value.)
  *
- * @param mixed $one Array or string of data
+ * @param string|array|SimpleXmlElement|DomNode $one Array or string of data
  * @param string $two Value string for the alternative indata method
  * @return array Data with all of $one's keys and values
  * @link http://book.cakephp.org/2.0/en/models/saving-your-data.html
@@ -1068,9 +1154,7 @@ class Model extends Object {
 		if (is_array($one)) {
 			$data = $one;
 			if (empty($one[$this->alias])) {
-				if ($this->getAssociated(key($one)) === null) {
-					$data = array($this->alias => $one);
-				}
+				$data = $this->_setAliasData($one);
 			}
 		} else {
 			$data = array($this->alias => array($one => $two));
@@ -1081,7 +1165,7 @@ class Model extends Object {
 
 				foreach ($fieldSet as $fieldName => $fieldValue) {
 					if (isset($this->validationErrors[$fieldName])) {
-						unset ($this->validationErrors[$fieldName]);
+						unset($this->validationErrors[$fieldName]);
 					}
 
 					if ($modelName === $this->alias) {
@@ -1094,6 +1178,24 @@ class Model extends Object {
 					}
 					$this->data[$modelName][$fieldName] = $fieldValue;
 				}
+			}
+		}
+		return $data;
+	}
+
+/**
+ * Move values to alias
+ *
+ * @param array $data
+ * @return array
+ */
+	protected function _setAliasData($data) {
+		$models = array_keys($this->getAssociated());
+		$schema = array_keys((array)$this->schema());
+		foreach ($data as $field => $value) {
+			if (in_array($field, $schema) || !in_array($field, $models)) {
+				$data[$this->alias][$field] = $value;
+				unset($data[$field]);
 			}
 		}
 		return $data;
@@ -1123,7 +1225,7 @@ class Model extends Object {
  * Deconstructs a complex data type (array or object) into a single field value.
  *
  * @param string $field The name of the field to be deconstructed
- * @param mixed $data An array or object to be deconstructed into a field
+ * @param array|object $data An array or object to be deconstructed into a field
  * @return mixed The resulting data that should be assigned to a field
  */
 	public function deconstruct($field, $data) {
@@ -1131,65 +1233,76 @@ class Model extends Object {
 			return $data;
 		}
 
-		$copy = $data;
 		$type = $this->getColumnType($field);
 
-		if (in_array($type, array('datetime', 'timestamp', 'date', 'time'))) {
-			$useNewDate = (isset($data['year']) || isset($data['month']) ||
-				isset($data['day']) || isset($data['hour']) || isset($data['minute']));
+		if (!in_array($type, array('datetime', 'timestamp', 'date', 'time'))) {
+			return $data;
+		}
 
-			$dateFields = array('Y' => 'year', 'm' => 'month', 'd' => 'day', 'H' => 'hour', 'i' => 'min', 's' => 'sec');
-			$timeFields = array('H' => 'hour', 'i' => 'min', 's' => 'sec');
-			$date = array();
+		$useNewDate = (isset($data['year']) || isset($data['month']) ||
+			isset($data['day']) || isset($data['hour']) || isset($data['minute']));
 
-			if (isset($data['hour']) && isset($data['meridian']) && $data['hour'] != 12 && 'pm' == $data['meridian']) {
-				$data['hour'] = $data['hour'] + 12;
+		$dateFields = array('Y' => 'year', 'm' => 'month', 'd' => 'day', 'H' => 'hour', 'i' => 'min', 's' => 'sec');
+		$timeFields = array('H' => 'hour', 'i' => 'min', 's' => 'sec');
+		$date = array();
+
+		if (isset($data['meridian']) && empty($data['meridian'])) {
+			return null;
+		}
+
+		if (
+			isset($data['hour']) &&
+			isset($data['meridian']) &&
+			!empty($data['hour']) &&
+			$data['hour'] != 12 &&
+			'pm' == $data['meridian']
+		) {
+			$data['hour'] = $data['hour'] + 12;
+		}
+		if (isset($data['hour']) && isset($data['meridian']) && $data['hour'] == 12 && 'am' == $data['meridian']) {
+			$data['hour'] = '00';
+		}
+		if ($type === 'time') {
+			foreach ($timeFields as $key => $val) {
+				if (!isset($data[$val]) || $data[$val] === '0' || $data[$val] === '00') {
+					$data[$val] = '00';
+				} elseif ($data[$val] !== '') {
+					$data[$val] = sprintf('%02d', $data[$val]);
+				}
+				if (!empty($data[$val])) {
+					$date[$key] = $data[$val];
+				} else {
+					return null;
+				}
 			}
-			if (isset($data['hour']) && isset($data['meridian']) && $data['hour'] == 12 && 'am' == $data['meridian']) {
-				$data['hour'] = '00';
-			}
-			if ($type == 'time') {
-				foreach ($timeFields as $key => $val) {
+		}
+
+		if ($type === 'datetime' || $type === 'timestamp' || $type === 'date') {
+			foreach ($dateFields as $key => $val) {
+				if ($val === 'hour' || $val === 'min' || $val === 'sec') {
 					if (!isset($data[$val]) || $data[$val] === '0' || $data[$val] === '00') {
 						$data[$val] = '00';
-					} elseif ($data[$val] === '') {
-						$data[$val] = '';
 					} else {
 						$data[$val] = sprintf('%02d', $data[$val]);
 					}
-					if (!empty($data[$val])) {
-						$date[$key] = $data[$val];
-					} else {
-						return null;
-					}
+				}
+				if (!isset($data[$val]) || isset($data[$val]) && (empty($data[$val]) || $data[$val][0] === '-')) {
+					return null;
+				}
+				if (isset($data[$val]) && !empty($data[$val])) {
+					$date[$key] = $data[$val];
 				}
 			}
+		}
 
-			if ($type == 'datetime' || $type == 'timestamp' || $type == 'date') {
-				foreach ($dateFields as $key => $val) {
-					if ($val == 'hour' || $val == 'min' || $val == 'sec') {
-						if (!isset($data[$val]) || $data[$val] === '0' || $data[$val] === '00') {
-							$data[$val] = '00';
-						} else {
-							$data[$val] = sprintf('%02d', $data[$val]);
-						}
-					}
-					if (!isset($data[$val]) || isset($data[$val]) && (empty($data[$val]) || $data[$val][0] === '-')) {
-						return null;
-					}
-					if (isset($data[$val]) && !empty($data[$val])) {
-						$date[$key] = $data[$val];
-					}
-				}
-			}
-
+		if ($useNewDate && !empty($date)) {
 			$format = $this->getDataSource()->columns[$type]['format'];
-			$day = empty($date['Y']) ? null : $date['Y'] . '-' . $date['m'] . '-' . $date['d'] . ' ';
-			$hour = empty($date['H']) ? null : $date['H'] . ':' . $date['i'] . ':' . $date['s'];
-			$date = new DateTime($day . $hour);
-			if ($useNewDate && !empty($date)) {
-				return $date->format($format);
+			foreach (array('m', 'd', 'H', 'i', 's') as $index) {
+				if (isset($date[$index])) {
+					$date[$index] = sprintf('%02d', $date[$index]);
+				}
 			}
+			return str_replace(array_keys($date), array_values($date), $format);
 		}
 		return $data;
 	}
@@ -1198,27 +1311,24 @@ class Model extends Object {
  * Returns an array of table metadata (column names and types) from the database.
  * $field => keys(type, null, default, key, length, extra)
  *
- * @param mixed $field Set to true to reload schema, or a string to return a specific field
+ * @param boolean|string $field Set to true to reload schema, or a string to return a specific field
  * @return array Array of table metadata
  */
 	public function schema($field = false) {
-		if (!is_array($this->_schema) || $field === true) {
+		if ($this->useTable !== false && (!is_array($this->_schema) || $field === true)) {
 			$db = $this->getDataSource();
 			$db->cacheSources = ($this->cacheSources && $db->cacheSources);
-			if (method_exists($db, 'describe') && $this->useTable !== false) {
+			if (method_exists($db, 'describe')) {
 				$this->_schema = $db->describe($this);
-			} elseif ($this->useTable === false) {
-				$this->_schema = array();
 			}
 		}
-		if (is_string($field)) {
-			if (isset($this->_schema[$field])) {
-				return $this->_schema[$field];
-			} else {
-				return null;
-			}
+		if (!is_string($field)) {
+			return $this->_schema;
 		}
-		return $this->_schema;
+		if (isset($this->_schema[$field])) {
+			return $this->_schema[$field];
+		}
+		return null;
 	}
 
 /**
@@ -1249,7 +1359,9 @@ class Model extends Object {
 		$cols = $this->schema();
 		$model = null;
 
-		$column = str_replace(array($db->startQuote, $db->endQuote), '', $column);
+		$startQuote = isset($db->startQuote) ? $db->startQuote : null;
+		$endQuote = isset($db->endQuote) ? $db->endQuote : null;
+		$column = str_replace(array($startQuote, $endQuote), '', $column);
 
 		if (strpos($column, '.')) {
 			list($model, $column) = explode('.', $column);
@@ -1266,7 +1378,7 @@ class Model extends Object {
 /**
  * Returns true if the supplied field exists in the model's database table.
  *
- * @param mixed $name Name of field to look for, or an array of names
+ * @param string|array $name Name of field to look for, or an array of names
  * @param boolean $checkVirtual checks if the field is declared as virtual
  * @return mixed If $name is a string, returns a boolean indicating whether the field exists.
  *               If $name is an array of field names, returns the first field that exists,
@@ -1282,24 +1394,22 @@ class Model extends Object {
 			return false;
 		}
 
-		if ($checkVirtual && !empty($this->virtualFields)) {
-			if ($this->isVirtualField($name)) {
-				return true;
-			}
+		if ($checkVirtual && !empty($this->virtualFields) && $this->isVirtualField($name)) {
+			return true;
 		}
 
 		if (empty($this->_schema)) {
 			$this->schema();
 		}
 
-		if ($this->_schema != null) {
+		if ($this->_schema) {
 			return isset($this->_schema[$name]);
 		}
 		return false;
 	}
 
 /**
- * Check that a method is callable on a model.  This will check both the model's own methods, its
+ * Check that a method is callable on a model. This will check both the model's own methods, its
  * inherited methods and methods that could be callable through behaviors.
  *
  * @param string $method The method to be called.
@@ -1309,10 +1419,7 @@ class Model extends Object {
 		if (method_exists($this, $method)) {
 			return true;
 		}
-		if ($this->Behaviors->hasMethod($method)) {
-			return true;
-		}
-		return false;
+		return $this->Behaviors->hasMethod($method);
 	}
 
 /**
@@ -1346,12 +1453,12 @@ class Model extends Object {
  *    or false if none $field exist.
  */
 	public function getVirtualField($field = null) {
-		if ($field == null) {
+		if (!$field) {
 			return empty($this->virtualFields) ? false : $this->virtualFields;
 		}
 		if ($this->isVirtualField($field)) {
 			if (strpos($field, '.') !== false) {
-				list($model, $field) = explode('.', $field);
+				list(, $field) = pluginSplit($field);
 			}
 			return $this->virtualFields[$field];
 		}
@@ -1363,7 +1470,7 @@ class Model extends Object {
  * for those fields that are not defined in $data, and clearing previous validation errors.
  * Especially helpful for saving data in loops.
  *
- * @param mixed $data Optional data array to assign to the model after it is created.  If null or false,
+ * @param boolean|array $data Optional data array to assign to the model after it is created. If null or false,
  *   schema data defaults are not merged.
  * @param boolean $filterKey If true, overwrites any primary key input with an empty value
  * @return array The current Model::data; after merging $data and/or defaults from database
@@ -1376,7 +1483,8 @@ class Model extends Object {
 		$this->validationErrors = array();
 
 		if ($data !== null && $data !== false) {
-			foreach ($this->schema() as $field => $properties) {
+			$schema = (array)$this->schema();
+			foreach ($schema as $field => $properties) {
 				if ($this->primaryKey !== $field && isset($properties['default']) && $properties['default'] !== '') {
 					$defaults[$field] = $properties['default'];
 				}
@@ -1394,15 +1502,15 @@ class Model extends Object {
  * Returns a list of fields from the database, and sets the current model
  * data (Model::$data) with the record found.
  *
- * @param mixed $fields String of single fieldname, or an array of fieldnames.
- * @param mixed $id The ID of the record to read
+ * @param string|array $fields String of single field name, or an array of field names.
+ * @param integer|string $id The ID of the record to read
  * @return array Array of database fields, or false if not found
  * @link http://book.cakephp.org/2.0/en/models/retrieving-your-data.html#model-read
  */
 	public function read($fields = null, $id = null) {
 		$this->validationErrors = array();
 
-		if ($id != null) {
+		if ($id) {
 			$this->id = $id;
 		}
 
@@ -1418,9 +1526,8 @@ class Model extends Object {
 				'fields' => $fields
 			));
 			return $this->data;
-		} else {
-			return false;
 		}
+		return false;
 	}
 
 /**
@@ -1437,28 +1544,27 @@ class Model extends Object {
 		if ($conditions === null && $this->id !== false) {
 			$conditions = array($this->alias . '.' . $this->primaryKey => $this->id);
 		}
+		$recursive = $this->recursive;
 		if ($this->recursive >= 1) {
 			$recursive = -1;
-		} else {
-			$recursive = $this->recursive;
 		}
 		$fields = $name;
-		if ($data = $this->find('first', compact('conditions', 'fields', 'order', 'recursive'))) {
-			if (strpos($name, '.') === false) {
-				if (isset($data[$this->alias][$name])) {
-					return $data[$this->alias][$name];
-				}
-			} else {
-				$name = explode('.', $name);
-				if (isset($data[$name[0]][$name[1]])) {
-					return $data[$name[0]][$name[1]];
-				}
-			}
-			if (isset($data[0]) && count($data[0]) > 0) {
-				return array_shift($data[0]);
+		$data = $this->find('first', compact('conditions', 'fields', 'order', 'recursive'));
+		if (!$data) {
+			return false;
+		}
+		if (strpos($name, '.') === false) {
+			if (isset($data[$this->alias][$name])) {
+				return $data[$this->alias][$name];
 			}
 		} else {
-			return false;
+			$name = explode('.', $name);
+			if (isset($data[$name[0]][$name[1]])) {
+				return $data[$name[0]][$name[1]];
+			}
+		}
+		if (isset($data[0]) && count($data[0]) > 0) {
+			return array_shift($data[0]);
 		}
 	}
 
@@ -1468,19 +1574,20 @@ class Model extends Object {
  *
  * @param string $name Name of the table field
  * @param mixed $value Value of the field
- * @param array $validate See $options param in Model::save(). Does not respect 'fieldList' key if passed
+ * @param boolean|array $validate Either a boolean, or an array.
+ *   If a boolean, indicates whether or not to validate before saving.
+ *   If an array, allows control of 'validate' and 'callbacks' options.
  * @return boolean See Model::save()
  * @see Model::save()
- * @link http://book.cakephp.org/2.0/en/models/retrieving-your-data.html#model-read
+ * @link http://book.cakephp.org/2.0/en/models/saving-your-data.html#model-savefield-string-fieldname-string-fieldvalue-validate-false
  */
 	public function saveField($name, $value, $validate = false) {
 		$id = $this->id;
 		$this->create(false);
 
+		$options = array('validate' => $validate, 'fieldList' => array($name));
 		if (is_array($validate)) {
 			$options = array_merge(array('validate' => false, 'fieldList' => array($name)), $validate);
-		} else {
-			$options = array('validate' => $validate, 'fieldList' => array($name));
 		}
 		return $this->save(array($this->alias => array($this->primaryKey => $id, $name => $value)), $options);
 	}
@@ -1490,7 +1597,7 @@ class Model extends Object {
  * default, validation occurs before save.
  *
  * @param array $data Data to save.
- * @param mixed $validate Either a boolean, or an array.
+ * @param boolean|array $validate Either a boolean, or an array.
  *   If a boolean, indicates whether or not to validate before saving.
  *   If an array, allows control of validate, callbacks, and fieldList
  * @param array $fieldList List of fields to allow to be written
@@ -1503,19 +1610,23 @@ class Model extends Object {
 		$fields = array();
 
 		if (!is_array($validate)) {
-			$options = array_merge($defaults, compact('validate', 'fieldList', 'callbacks'));
+			$options = array_merge($defaults, compact('validate', 'fieldList'));
 		} else {
 			$options = array_merge($defaults, $validate);
 		}
 
 		if (!empty($options['fieldList'])) {
 			$this->whitelist = $options['fieldList'];
+			if (!empty($options['fieldList'][$this->alias]) && is_array($options['fieldList'][$this->alias])) {
+				$this->whitelist = $options['fieldList'][$this->alias];
+			}
 		} elseif ($options['fieldList'] === null) {
 			$this->whitelist = array();
 		}
 		$this->set($data);
 
 		if (empty($this->data) && !$this->hasField(array('created', 'updated', 'modified'))) {
+			$this->whitelist = $_whitelist;
 			return false;
 		}
 
@@ -1553,7 +1664,7 @@ class Model extends Object {
 				if (!array_key_exists('format', $colType)) {
 					$time = strtotime('now');
 				} else {
-					$time = $colType['formatter']($colType['format']);
+					$time = call_user_func($colType['formatter'], $colType['format']);
 				}
 				if (!empty($this->whitelist)) {
 					$this->whitelist[] = $updateCol;
@@ -1563,10 +1674,10 @@ class Model extends Object {
 		}
 
 		if ($options['callbacks'] === true || $options['callbacks'] === 'before') {
-			$result = $this->Behaviors->trigger('beforeSave', array(&$this, $options), array(
-				'break' => true, 'breakOn' => array(false, null)
-			));
-			if (!$result || !$this->beforeSave($options)) {
+			$event = new CakeEvent('Model.beforeSave', $this, array($options));
+			list($event->break, $event->breakOn) = array(true, array(false, null));
+			$this->getEventManager()->dispatch($event);
+			if (!$event->result) {
 				$this->whitelist = $_whitelist;
 				return false;
 			}
@@ -1613,11 +1724,7 @@ class Model extends Object {
 			if (!empty($this->id)) {
 				$success = (bool)$db->update($this, $fields, $values);
 			} else {
-				$fInfo = $this->schema($this->primaryKey);
-				$isUUID = ($fInfo['length'] == 36 &&
-					($fInfo['type'] === 'string' || $fInfo['type'] === 'binary')
-				);
-				if (empty($this->data[$this->alias][$this->primaryKey]) && $isUUID) {
+				if (empty($this->data[$this->alias][$this->primaryKey]) && $this->_isUUIDField($this->primaryKey)) {
 					if (array_key_exists($this->primaryKey, $this->data[$this->alias])) {
 						$j = array_search($this->primaryKey, $fields);
 						$values[$j] = String::uuid();
@@ -1627,7 +1734,7 @@ class Model extends Object {
 				}
 
 				if (!$db->create($this, $fields, $values)) {
-					$success = $created = false;
+					$success = false;
 				} else {
 					$created = true;
 				}
@@ -1642,19 +1749,22 @@ class Model extends Object {
 			$this->_saveMulti($joined, $this->id, $db);
 		}
 
+		if ($success && $count === 0) {
+			$success = false;
+		}
+
 		if ($success && $count > 0) {
 			if (!empty($this->data)) {
-				$success = $this->data;
 				if ($created) {
 					$this->data[$this->alias][$this->primaryKey] = $this->id;
 				}
 			}
 			if ($options['callbacks'] === true || $options['callbacks'] === 'after') {
-				$this->Behaviors->trigger('afterSave', array(&$this, $created, $options));
-				$this->afterSave($created);
+				$event = new CakeEvent('Model.afterSave', $this, array($created, $options));
+				$this->getEventManager()->dispatch($event);
 			}
 			if (!empty($this->data)) {
-				$success = Set::merge($success, $this->data);
+				$success = $this->data;
 			}
 			$this->data = false;
 			$this->_clearCache();
@@ -1665,10 +1775,21 @@ class Model extends Object {
 	}
 
 /**
+ * Check if the passed in field is a UUID field
+ *
+ * @param string $field the field to check
+ * @return boolean
+ */
+	protected function _isUUIDField($field) {
+		$field = $this->schema($field);
+		return $field['length'] == 36 && in_array($field['type'], array('string', 'binary'));
+	}
+
+/**
  * Saves model hasAndBelongsToMany data to the database.
  *
  * @param array $joined Data to save
- * @param mixed $id ID of record in this model
+ * @param integer|string $id ID of record in this model
  * @param DataSource $db
  * @return void
  */
@@ -1678,20 +1799,22 @@ class Model extends Object {
 			if (isset($this->hasAndBelongsToMany[$assoc])) {
 				list($join) = $this->joinModel($this->hasAndBelongsToMany[$assoc]['with']);
 
-				$keyInfo = $this->{$join}->schema($this->{$join}->primaryKey);
-				$isUUID = !empty($this->{$join}->primaryKey) && (
-						$keyInfo['length'] == 36 && (
-						$keyInfo['type'] === 'string' ||
-						$keyInfo['type'] === 'binary'
-					)
-				);
+				if ($with = $this->hasAndBelongsToMany[$assoc]['with']) {
+					$withModel = is_array($with) ? key($with) : $with;
+					list(, $withModel) = pluginSplit($withModel);
+					$dbMulti = $this->{$withModel}->getDataSource();
+				} else {
+					$dbMulti = $db;
+				}
 
-				$newData = $newValues = array();
+				$isUUID = !empty($this->{$join}->primaryKey) && $this->{$join}->_isUUIDField($this->{$join}->primaryKey);
+
+				$newData = $newValues = $newJoins = array();
 				$primaryAdded = false;
 
-				$fields =  array(
-					$db->name($this->hasAndBelongsToMany[$assoc]['foreignKey']),
-					$db->name($this->hasAndBelongsToMany[$assoc]['associationForeignKey'])
+				$fields = array(
+					$dbMulti->name($this->hasAndBelongsToMany[$assoc]['foreignKey']),
+					$dbMulti->name($this->hasAndBelongsToMany[$assoc]['associationForeignKey'])
 				);
 
 				$idField = $db->name($this->{$join}->primaryKey);
@@ -1702,19 +1825,27 @@ class Model extends Object {
 
 				foreach ((array)$data as $row) {
 					if ((is_string($row) && (strlen($row) == 36 || strlen($row) == 16)) || is_numeric($row)) {
+						$newJoins[] = $row;
 						$values = array($id, $row);
 						if ($isUUID && $primaryAdded) {
 							$values[] = String::uuid();
 						}
-						$newValues[] = $values;
+						$newValues[$row] = $values;
 						unset($values);
 					} elseif (isset($row[$this->hasAndBelongsToMany[$assoc]['associationForeignKey']])) {
+						if (!empty($row[$this->{$join}->primaryKey])) {
+							$newJoins[] = $row[$this->hasAndBelongsToMany[$assoc]['associationForeignKey']];
+						}
 						$newData[] = $row;
 					} elseif (isset($row[$join]) && isset($row[$join][$this->hasAndBelongsToMany[$assoc]['associationForeignKey']])) {
+						if (!empty($row[$join][$this->{$join}->primaryKey])) {
+							$newJoins[] = $row[$join][$this->hasAndBelongsToMany[$assoc]['associationForeignKey']];
+						}
 						$newData[] = $row[$join];
 					}
 				}
 
+				$keepExisting = $this->hasAndBelongsToMany[$assoc]['unique'] === 'keepExisting';
 				if ($this->hasAndBelongsToMany[$assoc]['unique']) {
 					$conditions = array(
 						$join . '.' . $this->hasAndBelongsToMany[$assoc]['foreignKey'] => $id
@@ -1722,30 +1853,50 @@ class Model extends Object {
 					if (!empty($this->hasAndBelongsToMany[$assoc]['conditions'])) {
 						$conditions = array_merge($conditions, (array)$this->hasAndBelongsToMany[$assoc]['conditions']);
 					}
+					$associationForeignKey = $this->{$join}->alias . '.' . $this->hasAndBelongsToMany[$assoc]['associationForeignKey'];
 					$links = $this->{$join}->find('all', array(
 						'conditions' => $conditions,
 						'recursive' => empty($this->hasAndBelongsToMany[$assoc]['conditions']) ? -1 : 0,
-						'fields' => $this->hasAndBelongsToMany[$assoc]['associationForeignKey']
+						'fields' => $associationForeignKey,
 					));
 
-					$associationForeignKey = "{$join}." . $this->hasAndBelongsToMany[$assoc]['associationForeignKey'];
-					$oldLinks = Set::extract($links, "{n}.{$associationForeignKey}");
+					$oldLinks = Hash::extract($links, "{n}.{$associationForeignKey}");
 					if (!empty($oldLinks)) {
- 						$conditions[$associationForeignKey] = $oldLinks;
-						$db->delete($this->{$join}, $conditions);
+						if ($keepExisting && !empty($newJoins)) {
+							$conditions[$associationForeignKey] = array_diff($oldLinks, $newJoins);
+						} else {
+							$conditions[$associationForeignKey] = $oldLinks;
+						}
+						$dbMulti->delete($this->{$join}, $conditions);
 					}
 				}
 
 				if (!empty($newData)) {
 					foreach ($newData as $data) {
 						$data[$this->hasAndBelongsToMany[$assoc]['foreignKey']] = $id;
-						$this->{$join}->create($data);
-						$this->{$join}->save();
+						if (empty($data[$this->{$join}->primaryKey])) {
+							$this->{$join}->create();
+						}
+						$this->{$join}->save($data);
 					}
 				}
 
 				if (!empty($newValues)) {
-					$db->insertMulti($this->{$join}, $fields, $newValues);
+					if ($keepExisting && !empty($links)) {
+						foreach ($links as $link) {
+							$oldJoin = $link[$join][$this->hasAndBelongsToMany[$assoc]['associationForeignKey']];
+							if (!in_array($oldJoin, $newJoins)) {
+								$conditions[$associationForeignKey] = $oldJoin;
+								$db->delete($this->{$join}, $conditions);
+							} else {
+								unset($newValues[$oldJoin]);
+							}
+						}
+						$newValues = array_values($newValues);
+					}
+					if (!empty($newValues)) {
+						$dbMulti->insertMulti($this->{$join}, $fields, $newValues);
+					}
 				}
 			}
 		}
@@ -1822,7 +1973,7 @@ class Model extends Object {
 	}
 
 /**
- * Helper method for Model::updateCounterCache().  Checks the fields to be updated for
+ * Helper method for Model::updateCounterCache(). Checks the fields to be updated for
  *
  * @param array $data The fields of the record that will be updated
  * @return array Returns updated foreign key values, along with an 'old' key containing the old
@@ -1841,7 +1992,7 @@ class Model extends Object {
 			return array();
 		}
 		$old = $this->find('first', array(
-			'conditions' => array($this->primaryKey => $this->id),
+			'conditions' => array($this->alias . '.' . $this->primaryKey => $this->id),
 			'fields' => array_values($included),
 			'recursive' => -1
 		));
@@ -1849,7 +2000,7 @@ class Model extends Object {
 	}
 
 /**
- * Backwards compatible passtrough method for:
+ * Backwards compatible passthrough method for:
  * saveMany(), validateMany(), saveAssociated() and validateAssociated()
  *
  * Saves multiple individual records for a single model; Also works with a single record, as well as
@@ -1862,7 +2013,15 @@ class Model extends Object {
  *   or 'only' to only validate the records, but not save them.
  * - atomic: If true (default), will attempt to save all records in a single transaction.
  *   Should be set to false if database/table does not support transactions.
- * - fieldList: Equivalent to the $fieldList parameter in Model::save()
+ * - fieldList: Equivalent to the $fieldList parameter in Model::save().
+ *   It should be an associate array with model name as key and array of fields as value. Eg.
+ *   {{{
+ *   array(
+ *       'SomeModel' => array('field'),
+ *       'AssociatedModel' => array('field', 'otherfield')
+ *   )
+ *   }}}
+ * - deep: see saveMany/saveAssociated
  *
  * @param array $data Record data to save. This can be either a numerically-indexed array (for saving multiple
  *     records of the same type), or an array indexed by association name.
@@ -1873,20 +2032,16 @@ class Model extends Object {
  * @link http://book.cakephp.org/2.0/en/models/saving-your-data.html#model-saveassociated-array-data-null-array-options-array
  * @link http://book.cakephp.org/2.0/en/models/saving-your-data.html#model-saveall-array-data-null-array-options-array
  */
-	public function saveAll($data = null, $options = array()) {
+	public function saveAll($data = array(), $options = array()) {
 		$options = array_merge(array('validate' => 'first'), $options);
-		if (Set::numeric(array_keys($data))) {
+		if (Hash::numeric(array_keys($data))) {
 			if ($options['validate'] === 'only') {
 				return $this->validateMany($data, $options);
 			}
 			return $this->saveMany($data, $options);
 		}
 		if ($options['validate'] === 'only') {
-			$validatesAssoc = $this->validateAssociated($data, $options);
-			if (isset($this->validationErrors[$this->alias]) && $this->validationErrors[$this->alias] === false) {
-				return false;
-			}
-			return $validatesAssoc;
+			return $this->validateAssociated($data, $options);
 		}
 		return $this->saveAssociated($data, $options);
 	}
@@ -1901,6 +2056,7 @@ class Model extends Object {
  * - atomic: If true (default), will attempt to save all records in a single transaction.
  *   Should be set to false if database/table does not support transactions.
  * - fieldList: Equivalent to the $fieldList parameter in Model::save()
+ * - deep: If set to true, all associated data will be saved as well.
  *
  * @param array $data Record data to save. This should be a numerically-indexed array
  * @param array $options Options to use when saving record data, See $options above.
@@ -1914,11 +2070,14 @@ class Model extends Object {
 			$data = $this->data;
 		}
 
-		$options = array_merge(array('validate' => 'first', 'atomic' => true), $options);
+		$options = array_merge(array('validate' => 'first', 'atomic' => true, 'deep' => false), $options);
 		$this->validationErrors = $validationErrors = array();
 
 		if (empty($data) && $options['validate'] !== false) {
 			$result = $this->save($data, $options);
+			if (!$options['atomic']) {
+				return array(!empty($result));
+			}
 			return !empty($result);
 		}
 
@@ -1927,20 +2086,30 @@ class Model extends Object {
 			if ((!$validates && $options['atomic']) || (!$options['atomic'] && in_array(false, $validates, true))) {
 				return $validates;
 			}
+			$options['validate'] = false;
 		}
 
 		if ($options['atomic']) {
 			$db = $this->getDataSource();
-			$transactionBegun = $db->begin($this);
+			$transactionBegun = $db->begin();
 		}
 		$return = array();
 		foreach ($data as $key => $record) {
-			$validates = ($this->create(null) !== null && $this->save($record, $options));
+			$validates = $this->create(null) !== null;
+			$saved = false;
+			if ($validates) {
+				if ($options['deep']) {
+					$saved = $this->saveAssociated($record, array_merge($options, array('atomic' => false)));
+				} else {
+					$saved = $this->save($record, $options);
+				}
+			}
+			$validates = ($validates && ($saved === true || (is_array($saved) && !in_array(false, $saved, true))));
 			if (!$validates) {
 				$validationErrors[$key] = $this->validationErrors;
 			}
 			if (!$options['atomic']) {
-				$return[] = $validates;
+				$return[$key] = $validates;
 			} elseif (!$validates) {
 				break;
 			}
@@ -1952,12 +2121,11 @@ class Model extends Object {
 		}
 		if ($validates) {
 			if ($transactionBegun) {
-				return $db->commit($this) !== false;
-			} else {
-				return true;
+				return $db->commit() !== false;
 			}
+			return true;
 		}
-		$db->rollback($this);
+		$db->rollback();
 		return false;
 	}
 
@@ -1968,32 +2136,20 @@ class Model extends Object {
  *
  * - atomic: If true (default), returns boolean. If false returns array.
  * - fieldList: Equivalent to the $fieldList parameter in Model::save()
+ * - deep: If set to true, all associated data will be validated as well.
+ *
+ * Warning: This method could potentially change the passed argument `$data`,
+ * If you do not want this to happen, make a copy of `$data` before passing it
+ * to this method
  *
  * @param array $data Record data to validate. This should be a numerically-indexed array
  * @param array $options Options to use when validating record data (see above), See also $options of validates().
- * @return boolean True on success, or false on failure.
- * @return mixed If atomic: True on success, or false on failure.
+ * @return boolean|array If atomic: True on success, or false on failure.
  *    Otherwise: array similar to the $data array passed, but values are set to true/false
  *    depending on whether each record validated successfully.
  */
-	public function validateMany($data, $options = array()) {
-		$options = array_merge(array('atomic' => true), $options);
-		$this->validationErrors = $validationErrors = $return = array();
-		foreach ($data as $key => $record) {
-			$validates = $this->create($record) && $this->validates($options);
-			if (!$validates) {
-				$validationErrors[$key] = $this->validationErrors;
-			}
-			$return[] = $validates;
-		}
-		$this->validationErrors = $validationErrors;
-		if (!$options['atomic']) {
-			return $return;
-		}
-		if (empty($this->validationErrors)) {
-			return true;
-		}
-		return false;
+	public function validateMany(&$data, $options = array()) {
+		return $this->validator()->validateMany($data, $options);
 	}
 
 /**
@@ -2001,11 +2157,19 @@ class Model extends Object {
  *
  * #### Options
  *
- * - validate: Set to false to disable validation, true to validate each record before saving,
- *   'first' to validate *all* records before any are saved (default),
- * - atomic: If true (default), will attempt to save all records in a single transaction.
+ * - `validate` Set to `false` to disable validation, `true` to validate each record before saving,
+ *   'first' to validate *all* records before any are saved(default),
+ * - `atomic` If true (default), will attempt to save all records in a single transaction.
  *   Should be set to false if database/table does not support transactions.
- * - fieldList: Equivalent to the $fieldList parameter in Model::save()
+ * - fieldList: Equivalent to the $fieldList parameter in Model::save().
+ *   It should be an associate array with model name as key and array of fields as value. Eg.
+ *   {{{
+ *   array(
+ *       'SomeModel' => array('field'),
+ *       'AssociatedModel' => array('field', 'otherfield')
+ *   )
+ *   }}}
+ * - deep: If set to true, not only directly associated data is saved, but deeper nested associated data as well.
  *
  * @param array $data Record data to save. This should be an array indexed by association name.
  * @param array $options Options to use when saving record data, See $options above.
@@ -2019,36 +2183,57 @@ class Model extends Object {
 			$data = $this->data;
 		}
 
-		$options = array_merge(array('validate' => true, 'atomic' => true), $options);
+		$options = array_merge(array('validate' => 'first', 'atomic' => true, 'deep' => false), $options);
 		$this->validationErrors = $validationErrors = array();
 
 		if (empty($data) && $options['validate'] !== false) {
 			$result = $this->save($data, $options);
+			if (!$options['atomic']) {
+				return array(!empty($result));
+			}
 			return !empty($result);
 		}
 
 		if ($options['validate'] === 'first') {
 			$validates = $this->validateAssociated($data, $options);
-			if ((!$validates && $options['atomic']) || (!$options['atomic'] && in_array(false, $validates, true))) {
+			if ((!$validates && $options['atomic']) || (!$options['atomic'] && in_array(false, Hash::flatten($validates), true))) {
 				return $validates;
 			}
+			$options['validate'] = false;
 		}
 		if ($options['atomic']) {
 			$db = $this->getDataSource();
-			$transactionBegun = $db->begin($this);
+			$transactionBegun = $db->begin();
 		}
+
 		$associations = $this->getAssociated();
 		$return = array();
 		$validates = true;
 		foreach ($data as $association => $values) {
-			if (isset($associations[$association]) && $associations[$association] === 'belongsTo') {
-				if ($this->{$association}->create(null) !== null && $this->{$association}->save($values, $options)) {
-					$data[$this->alias][$this->belongsTo[$association]['foreignKey']] = $this->{$association}->id;
+			$notEmpty = !empty($values[$association]) || (!isset($values[$association]) && !empty($values));
+			if (isset($associations[$association]) && $associations[$association] === 'belongsTo' && $notEmpty) {
+				$validates = $this->{$association}->create(null) !== null;
+				$saved = false;
+				if ($validates) {
+					if ($options['deep']) {
+						$saved = $this->{$association}->saveAssociated($values, array_merge($options, array('atomic' => false)));
+					} else {
+						$saved = $this->{$association}->save($values, array_merge($options, array('atomic' => false)));
+					}
+					$validates = ($saved === true || (is_array($saved) && !in_array(false, $saved, true)));
+				}
+				if ($validates) {
+					$key = $this->belongsTo[$association]['foreignKey'];
+					if (isset($data[$this->alias])) {
+						$data[$this->alias][$key] = $this->{$association}->id;
+					} else {
+						$data = array_merge(array($key => $this->{$association}->id), $data, array($key => $this->{$association}->id));
+					}
+					$options = $this->_addToWhiteList($key, $options);
 				} else {
 					$validationErrors[$association] = $this->{$association}->validationErrors;
-					$validates = false;
 				}
-				$return[$association][] = $validates;
+				$return[$association] = $validates;
 			}
 		}
 		if ($validates && !($this->create(null) !== null && $this->save($data, $options))) {
@@ -2061,21 +2246,42 @@ class Model extends Object {
 			if (!$validates) {
 				break;
 			}
-			if (isset($associations[$association])) {
+			$notEmpty = !empty($values[$association]) || (!isset($values[$association]) && !empty($values));
+			if (isset($associations[$association]) && $notEmpty) {
 				$type = $associations[$association];
+				$key = $this->{$type}[$association]['foreignKey'];
 				switch ($type) {
 					case 'hasOne':
-						$values[$this->{$type}[$association]['foreignKey']] = $this->id;
-						if (!($this->{$association}->create(null) !== null && $this->{$association}->save($values, $options))) {
-							$validationErrors[$association] = $this->{$association}->validationErrors;
-							$validates = false;
+						if (isset($values[$association])) {
+							$values[$association][$key] = $this->id;
+						} else {
+							$values = array_merge(array($key => $this->id), $values, array($key => $this->id));
 						}
-						$return[$association][] = $validates;
+						$validates = $this->{$association}->create(null) !== null;
+						$saved = false;
+						if ($validates) {
+							$options = $this->{$association}->_addToWhiteList($key, $options);
+							if ($options['deep']) {
+								$saved = $this->{$association}->saveAssociated($values, array_merge($options, array('atomic' => false)));
+							} else {
+								$saved = $this->{$association}->save($values, $options);
+							}
+						}
+						$validates = ($validates && ($saved === true || (is_array($saved) && !in_array(false, $saved, true))));
+						if (!$validates) {
+							$validationErrors[$association] = $this->{$association}->validationErrors;
+						}
+						$return[$association] = $validates;
 					break;
 					case 'hasMany':
 						foreach ($values as $i => $value) {
-							$values[$i][$this->{$type}[$association]['foreignKey']] =  $this->id;
+							if (isset($values[$i][$association])) {
+								$values[$i][$association][$key] = $this->id;
+							} else {
+								$values[$i] = array_merge(array($key => $this->id), $value, array($key => $this->id));
+							}
 						}
+						$options = $this->{$association}->_addToWhiteList($key, $options);
 						$_return = $this->{$association}->saveMany($values, array_merge($options, array('atomic' => false)));
 						if (in_array(false, $_return, true)) {
 							$validationErrors[$association] = $this->{$association}->validationErrors;
@@ -2090,6 +2296,8 @@ class Model extends Object {
 
 		if (isset($validationErrors[$this->alias])) {
 			$this->validationErrors = $validationErrors[$this->alias];
+			unset($validationErrors[$this->alias]);
+			$this->validationErrors = array_merge($this->validationErrors, $validationErrors);
 		}
 
 		if (!$options['atomic']) {
@@ -2097,13 +2305,35 @@ class Model extends Object {
 		}
 		if ($validates) {
 			if ($transactionBegun) {
-				return $db->commit($this) !== false;
-			} else {
-				return true;
+				return $db->commit() !== false;
 			}
+			return true;
 		}
-		$db->rollback($this);
+		$db->rollback();
 		return false;
+	}
+
+/**
+ * Helper method for saveAll() and friends, to add foreign key to fieldlist
+ *
+ * @param string $key fieldname to be added to list
+ * @param array $options
+ * @return array $options
+ */
+	protected function _addToWhiteList($key, $options) {
+		if (empty($options['fieldList']) && $this->whitelist && !in_array($key, $this->whitelist)) {
+			$options['fieldList'][$this->alias] = $this->whitelist;
+			$options['fieldList'][$this->alias][] = $key;
+			return $options;
+		}
+		if (!empty($options['fieldList'][$this->alias]) && is_array($options['fieldList'][$this->alias])) {
+			$options['fieldList'][$this->alias][] = $key;
+			return $options;
+		}
+		if (!empty($options['fieldList']) && is_array($options['fieldList'])) {
+			$options['fieldList'][] = $key;
+		}
+		return $options;
 	}
 
 /**
@@ -2113,6 +2343,11 @@ class Model extends Object {
  *
  * - atomic: If true (default), returns boolean. If false returns array.
  * - fieldList: Equivalent to the $fieldList parameter in Model::save()
+ * - deep: If set to true, not only directly associated data , but deeper nested associated data is validated as well.
+ *
+ * Warning: This method could potentially change the passed argument `$data`,
+ * If you do not want this to happen, make a copy of `$data` before passing it
+ * to this method
  *
  * @param array $data Record data to validate. This should be an array indexed by association name.
  * @param array $options Options to use when validating record data (see above), See also $options of validates().
@@ -2120,43 +2355,8 @@ class Model extends Object {
  *    Otherwise: array similar to the $data array passed, but values are set to true/false
  *    depending on whether each record validated successfully.
  */
-	public function validateAssociated($data, $options = array()) {
-		$options = array_merge(array('atomic' => true), $options);
-		$this->validationErrors = $validationErrors = $return = array();
-		if (!($this->create($data) && $this->validates($options))) {
-			$validationErrors[$this->alias] = $this->validationErrors;
-			$return[$this->alias] = false;
-		} else {
-			$return[$this->alias] = true;
-		}
-		$associations = $this->getAssociated();
-		$validates = true;
-		foreach ($data as $association => $values) {
-			if (isset($associations[$association])) {
-				if (in_array($associations[$association], array('belongsTo', 'hasOne'))) {
-					$validates = $this->{$association}->create($values) && $this->{$association}->validates($options);
-					$return[$association][] = $validates;
-				} elseif($associations[$association] === 'hasMany') {
-					$validates = $this->{$association}->validateMany($values, $options);
-					$return[$association] = $validates;
-				}
-				if (!$validates || (is_array($validates) && in_array(false, $validates, true))) {
-					$validationErrors[$association] = $this->{$association}->validationErrors;
-				}
-			}
-		}
-
-		$this->validationErrors = $validationErrors;
-		if (isset($validationErrors[$this->alias])) {
-			$this->validationErrors = $validationErrors[$this->alias];
-		}
-		if (!$options['atomic']) {
-			return $return;
-		}
-		if ($return[$this->alias] === false || !empty($this->validationErrors)) {
-			return false;
-		}
-		return true;
+	public function validateAssociated(&$data, $options = array()) {
+		return $this->validator()->validateAssociated($data, $options);
 	}
 
 /**
@@ -2175,7 +2375,7 @@ class Model extends Object {
 /**
  * Removes record for given ID. If no ID is given, the current ID is used. Returns true on success.
  *
- * @param mixed $id ID of record to delete
+ * @param integer|string $id ID of record to delete
  * @param boolean $cascade Set to true to delete records that depend on this record
  * @return boolean True on success
  * @link http://book.cakephp.org/2.0/en/models/deleting-data.html
@@ -2186,28 +2386,24 @@ class Model extends Object {
 		}
 		$id = $this->id;
 
-		if ($this->beforeDelete($cascade)) {
-			$filters = $this->Behaviors->trigger(
-				'beforeDelete',
-				array(&$this, $cascade),
-				array('break' => true, 'breakOn' => array(false, null))
-			);
-			if (!$filters || !$this->exists()) {
-				return false;
-			}
-			$db = $this->getDataSource();
+		$event = new CakeEvent('Model.beforeDelete', $this, array($cascade));
+		list($event->break, $event->breakOn) = array(true, array(false, null));
+		$this->getEventManager()->dispatch($event);
+		if ($event->isStopped()) {
+			return false;
+		}
+		if (!$this->exists()) {
+			return false;
+		}
 
-			$this->_deleteDependent($id, $cascade);
-			$this->_deleteLinks($id);
-			$this->id = $id;
+		$this->_deleteDependent($id, $cascade);
+		$this->_deleteLinks($id);
+		$this->id = $id;
 
-			$updateCounterCache = false;
-			if (!empty($this->belongsTo)) {
-				foreach ($this->belongsTo as $parent => $assoc) {
-					if (!empty($assoc['counterCache'])) {
-						$updateCounterCache = true;
-						break;
-					}
+		if (!empty($this->belongsTo)) {
+			foreach ($this->belongsTo as $assoc) {
+				if (empty($assoc['counterCache'])) {
+					continue;
 				}
 
 				$keys = $this->find('first', array(
@@ -2216,20 +2412,21 @@ class Model extends Object {
 					'recursive' => -1,
 					'callbacks' => false
 				));
-			}
-
-			if ($db->delete($this, array($this->alias . '.' . $this->primaryKey => $id))) {
-				if ($updateCounterCache) {
-					$this->updateCounterCache($keys[$this->alias]);
-				}
-				$this->Behaviors->trigger('afterDelete', array(&$this));
-				$this->afterDelete();
-				$this->_clearCache();
-				$this->id = false;
-				return true;
+				break;
 			}
 		}
-		return false;
+
+		if (!$this->getDataSource()->delete($this, array($this->alias . '.' . $this->primaryKey => $id))) {
+			return false;
+		}
+
+		if (!empty($keys[$this->alias])) {
+			$this->updateCounterCache($keys[$this->alias]);
+		}
+		$this->getEventManager()->dispatch(new CakeEvent('Model.afterDelete', $this));
+		$this->_clearCache();
+		$this->id = false;
+		return true;
 	}
 
 /**
@@ -2240,31 +2437,42 @@ class Model extends Object {
  * @return void
  */
 	protected function _deleteDependent($id, $cascade) {
+		if ($cascade !== true) {
+			return;
+		}
 		if (!empty($this->__backAssociation)) {
 			$savedAssociatons = $this->__backAssociation;
 			$this->__backAssociation = array();
 		}
-		foreach (array_merge($this->hasMany, $this->hasOne) as $assoc => $data) {
-			if ($data['dependent'] === true && $cascade === true) {
 
-				$model = $this->{$assoc};
+		foreach (array_merge($this->hasMany, $this->hasOne) as $assoc => $data) {
+			if ($data['dependent'] !== true) {
+				continue;
+			}
+
+			$model = $this->{$assoc};
+
+			if ($data['foreignKey'] === false && $data['conditions'] && in_array($this->name, $model->getAssociated('belongsTo'))) {
+				$model->recursive = 0;
+				$conditions = array($this->escapeField(null, $this->name) => $id);
+			} else {
+				$model->recursive = -1;
 				$conditions = array($model->escapeField($data['foreignKey']) => $id);
 				if ($data['conditions']) {
 					$conditions = array_merge((array)$data['conditions'], $conditions);
 				}
-				$model->recursive = -1;
+			}
 
-				if (isset($data['exclusive']) && $data['exclusive']) {
-					$model->deleteAll($conditions);
-				} else {
-					$records = $model->find('all', array(
-						'conditions' => $conditions, 'fields' => $model->primaryKey
-					));
+			if (isset($data['exclusive']) && $data['exclusive']) {
+				$model->deleteAll($conditions);
+			} else {
+				$records = $model->find('all', array(
+					'conditions' => $conditions, 'fields' => $model->primaryKey
+				));
 
-					if (!empty($records)) {
-						foreach ($records as $record) {
-							$model->delete($record[$model->alias][$model->primaryKey]);
-						}
+				if (!empty($records)) {
+					foreach ($records as $record) {
+						$model->delete($record[$model->alias][$model->primaryKey]);
 					}
 				}
 			}
@@ -2281,8 +2489,8 @@ class Model extends Object {
  * @return void
  */
 	protected function _deleteLinks($id) {
-		foreach ($this->hasAndBelongsToMany as $assoc => $data) {
-			list($plugin, $joinModel) = pluginSplit($data['with']);
+		foreach ($this->hasAndBelongsToMany as $data) {
+			list(, $joinModel) = pluginSplit($data['with']);
 			$records = $this->{$joinModel}->find('all', array(
 				'conditions' => array($this->{$joinModel}->escapeField($data['foreignKey']) => $id),
 				'fields' => $this->{$joinModel}->primaryKey,
@@ -2314,38 +2522,37 @@ class Model extends Object {
 
 		if (!$cascade && !$callbacks) {
 			return $db->delete($this, $conditions);
-		} else {
-			$ids = $this->find('all', array_merge(array(
-				'fields' => "{$this->alias}.{$this->primaryKey}",
-				'recursive' => 0), compact('conditions'))
-			);
-			if ($ids === false) {
-				return false;
-			}
+		}
+		$ids = $this->find('all', array_merge(array(
+			'fields' => "{$this->alias}.{$this->primaryKey}",
+			'recursive' => 0), compact('conditions'))
+		);
+		if ($ids === false || $ids === null) {
+			return false;
+		}
 
-			$ids = Set::extract($ids, "{n}.{$this->alias}.{$this->primaryKey}");
-			if (empty($ids)) {
-				return true;
-			}
+		$ids = Hash::extract($ids, "{n}.{$this->alias}.{$this->primaryKey}");
+		if (empty($ids)) {
+			return true;
+		}
 
-			if ($callbacks) {
-				$_id = $this->id;
-				$result = true;
-				foreach ($ids as $id) {
-					$result = ($result && $this->delete($id, $cascade));
-				}
-				$this->id = $_id;
-				return $result;
-			} else {
-				foreach ($ids as $id) {
-					$this->_deleteLinks($id);
-					if ($cascade) {
-						$this->_deleteDependent($id, $cascade);
-					}
-				}
-				return $db->delete($this, array($this->alias . '.' . $this->primaryKey => $ids));
+		if ($callbacks) {
+			$_id = $this->id;
+			$result = true;
+			foreach ($ids as $id) {
+				$result = $result && $this->delete($id, $cascade);
+			}
+			$this->id = $_id;
+			return $result;
+		}
+
+		foreach ($ids as $id) {
+			$this->_deleteLinks($id);
+			if ($cascade) {
+				$this->_deleteDependent($id, $cascade);
 			}
 		}
+		return $db->delete($this, array($this->alias . '.' . $this->primaryKey => $ids));
 	}
 
 /**
@@ -2366,21 +2573,29 @@ class Model extends Object {
 	}
 
 /**
- * Returns true if a record with the currently set ID exists.
+ * Returns true if a record with particular ID exists.
  *
- * Internally calls Model::getID() to obtain the current record ID to verify,
+ * If $id is not passed it calls Model::getID() to obtain the current record ID,
  * and then performs a Model::find('count') on the currently configured datasource
  * to ascertain the existence of the record in persistent storage.
  *
+ * @param integer|string $id ID of record to check for existence
  * @return boolean True if such a record exists
  */
-	public function exists() {
-		if ($this->getID() === false) {
+	public function exists($id = null) {
+		if ($id === null) {
+			$id = $this->getID();
+		}
+		if ($id === false) {
 			return false;
 		}
-		$conditions = array($this->alias . '.' . $this->primaryKey => $this->getID());
-		$query = array('conditions' => $conditions, 'recursive' => -1, 'callbacks' => false);
-		return ($this->find('count', $query) > 0);
+		return (bool)$this->find('count', array(
+			'conditions' => array(
+				$this->alias . '.' . $this->primaryKey => $id
+			),
+			'recursive' => -1,
+			'callbacks' => false
+		));
 	}
 
 /**
@@ -2390,14 +2605,14 @@ class Model extends Object {
  * @return boolean True if such a record exists
  */
 	public function hasAny($conditions = null) {
-		return ($this->find('count', array('conditions' => $conditions, 'recursive' => -1)) != false);
+		return (bool)$this->find('count', array('conditions' => $conditions, 'recursive' => -1));
 	}
 
 /**
  * Queries the datasource and returns a result set array.
  *
  * Also used to perform notation finds, where the first argument is type of find operation to perform
- * (all / first / count / neighbors / list / threaded ),
+ * (all / first / count / neighbors / list / threaded),
  * second parameter options for finding ( indexed array, including: 'conditions', 'limit',
  * 'recursive', 'page', 'fields', 'offset', 'order')
  *
@@ -2413,7 +2628,7 @@ class Model extends Object {
  * }}}
  *
  * In addition to the standard query keys above, you can provide Datasource, and behavior specific
- * keys.  For example, when using a SQL based datasource you can use the joins key to specify additional
+ * keys. For example, when using a SQL based datasource you can use the joins key to specify additional
  * joins that should be part of the query.
  *
  * {{{
@@ -2441,10 +2656,13 @@ class Model extends Object {
  *
  *  Note: find(list) + database views have issues with MySQL 5.0. Try upgrading to MySQL 5.1 if you
  *  have issues with database views.
+ *
+ *  Note: find(count) has its own return values.
+ *
  * @param string $type Type of find operation (all / first / count / neighbors / list / threaded)
  * @param array $query Option fields (conditions / fields / joins / limit / offset / order / page / group / callbacks)
- * @return array Array of records
- * @link http://book.cakephp.org/2.0/en/models/deleting-data.html#deleteall
+ * @return array Array of records, or Null on failure.
+ * @link http://book.cakephp.org/2.0/en/models/retrieving-your-data.html
  */
 	public function find($type = 'first', $query = array()) {
 		$this->findQueryType = $type;
@@ -2466,10 +2684,10 @@ class Model extends Object {
 
 		if ($type === 'all') {
 			return $results;
-		} else {
-			if ($this->findMethods[$type] === true) {
-				return $this->{'_find' . ucfirst($type)}('after', $query, $results);
-			}
+		}
+
+		if ($this->findMethods[$type] === true) {
+			return $this->{'_find' . ucfirst($type)}('after', $query, $results);
 		}
 	}
 
@@ -2490,10 +2708,8 @@ class Model extends Object {
 			(array)$query
 		);
 
-		if ($type !== 'all') {
-			if ($this->findMethods[$type] === true) {
-				$query = $this->{'_find' . ucfirst($type)}('before', $query);
-			}
+		if ($type !== 'all' && $this->findMethods[$type] === true) {
+			$query = $this->{'_find' . ucfirst($type)}('before', $query);
 		}
 
 		if (!is_numeric($query['page']) || intval($query['page']) < 1) {
@@ -2508,31 +2724,20 @@ class Model extends Object {
 		$query['order'] = array($query['order']);
 
 		if ($query['callbacks'] === true || $query['callbacks'] === 'before') {
-			$return = $this->Behaviors->trigger(
-				'beforeFind',
-				array(&$this, $query),
-				array('break' => true, 'breakOn' => array(false, null), 'modParams' => 1)
-			);
-
-			$query = (is_array($return)) ? $return : $query;
-
-			if ($return === false) {
+			$event = new CakeEvent('Model.beforeFind', $this, array($query));
+			list($event->break, $event->breakOn, $event->modParams) = array(true, array(false, null), 0);
+			$this->getEventManager()->dispatch($event);
+			if ($event->isStopped()) {
 				return null;
 			}
-
-			$return = $this->beforeFind($query);
-			$query = (is_array($return)) ? $return : $query;
-
-			if ($return === false) {
-				return null;
-			}
+			$query = $event->result === true ? $event->data[0] : $event->result;
 		}
 
 		return $query;
 	}
 
 /**
- * Handles the before/after filter logic for find('first') operations.  Only called by Model::find().
+ * Handles the before/after filter logic for find('first') operations. Only called by Model::find().
  *
  * @param string $state Either "before" or "after"
  * @param array $query
@@ -2546,14 +2751,14 @@ class Model extends Object {
 			return $query;
 		} elseif ($state === 'after') {
 			if (empty($results[0])) {
-				return false;
+				return array();
 			}
 			return $results[0];
 		}
 	}
 
 /**
- * Handles the before/after filter logic for find('count') operations.  Only called by Model::find().
+ * Handles the before/after filter logic for find('count') operations. Only called by Model::find().
  *
  * @param string $state Either "before" or "after"
  * @param array $query
@@ -2563,24 +2768,35 @@ class Model extends Object {
  */
 	protected function _findCount($state, $query, $results = array()) {
 		if ($state === 'before') {
+			if (!empty($query['type']) && isset($this->findMethods[$query['type']]) && $query['type'] !== 'count') {
+				$query['operation'] = 'count';
+				$query = $this->{'_find' . ucfirst($query['type'])}('before', $query);
+			}
 			$db = $this->getDataSource();
+			$query['order'] = false;
+			if (!method_exists($db, 'calculate')) {
+				return $query;
+			}
+			if (!empty($query['fields']) && is_array($query['fields'])) {
+				if (!preg_match('/^count/i', current($query['fields']))) {
+					unset($query['fields']);
+				}
+			}
 			if (empty($query['fields'])) {
 				$query['fields'] = $db->calculate($this, 'count');
-			} elseif (is_string($query['fields'])  && !preg_match('/count/i', $query['fields'])) {
+			} elseif (method_exists($db, 'expression') && is_string($query['fields']) && !preg_match('/count/i', $query['fields'])) {
 				$query['fields'] = $db->calculate($this, 'count', array(
 					$db->expression($query['fields']), 'count'
 				));
 			}
-			$query['order'] = false;
 			return $query;
 		} elseif ($state === 'after') {
 			foreach (array(0, $this->alias) as $key) {
 				if (isset($results[0][$key]['count'])) {
-					if (($count = count($results)) > 1) {
-						return $count;
-					} else {
-						return intval($results[0][$key]['count']);
+					if ($query['group']) {
+						return count($results);
 					}
+					return intval($results[0][$key]['count']);
 				}
 			}
 			return false;
@@ -2588,7 +2804,7 @@ class Model extends Object {
 	}
 
 /**
- * Handles the before/after filter logic for find('list') operations.  Only called by Model::find().
+ * Handles the before/after filter logic for find('list') operations. Only called by Model::find().
  *
  * @param string $state Either "before" or "after"
  * @param array $query
@@ -2640,8 +2856,7 @@ class Model extends Object {
 			if (empty($results)) {
 				return array();
 			}
-			$lst = $query['list'];
-			return Set::combine($results, $lst['keyPath'], $lst['valuePath'], $lst['groupPath']);
+			return Hash::combine($results, $query['list']['keyPath'], $query['list']['valuePath'], $query['list']['groupPath']);
 		}
 	}
 
@@ -2650,7 +2865,7 @@ class Model extends Object {
  * rows and return them.
  *
  * @param string $state Either "before" or "after"
- * @param mixed $query
+ * @param array $query
  * @param array $results
  * @return array
  */
@@ -2666,7 +2881,7 @@ class Model extends Object {
 				$field = $this->alias . '.' . $this->primaryKey;
 				$value = $this->id;
 			}
-			$query['conditions'] = 	array_merge($conditions, array($field . ' <' => $value));
+			$query['conditions'] = array_merge($conditions, array($field . ' <' => $value));
 			$query['order'] = $field . ' DESC';
 			$query['limit'] = 1;
 			$query['field'] = $field;
@@ -2677,8 +2892,8 @@ class Model extends Object {
 			unset($query['conditions'][$field . ' <']);
 			$return = array();
 			if (isset($results[0])) {
-				$prevVal = Set::extract('/' . str_replace('.', '/', $field), $results[0]);
-				$query['conditions'][$field . ' >='] = $prevVal[0];
+				$prevVal = Hash::get($results[0], $field);
+				$query['conditions'][$field . ' >='] = $prevVal;
 				$query['conditions'][$field . ' !='] = $value;
 				$query['limit'] = 2;
 			} else {
@@ -2687,14 +2902,14 @@ class Model extends Object {
 				$query['limit'] = 1;
 			}
 			$query['order'] = $field . ' ASC';
-			$return2 = $this->find('all', $query);
+			$neighbors = $this->find('all', $query);
 			if (!array_key_exists('prev', $return)) {
-				$return['prev'] = $return2[0];
+				$return['prev'] = isset($neighbors[0]) ? $neighbors[0] : null;
 			}
-			if (count($return2) === 2) {
-				$return['next'] = $return2[1];
-			} elseif (count($return2) === 1 && !$return['prev']) {
-				$return['next'] = $return2[0];
+			if (count($neighbors) === 2) {
+				$return['next'] = $neighbors[1];
+			} elseif (count($neighbors) === 1 && !$return['prev']) {
+				$return['next'] = $neighbors[0];
 			} else {
 				$return['next'] = null;
 			}
@@ -2706,7 +2921,7 @@ class Model extends Object {
  * In the event of ambiguous results returned (multiple top level results, with different parent_ids)
  * top level results with different parent_ids to the first result will be dropped
  *
- * @param mixed $state
+ * @param string $state
  * @param mixed $query
  * @param array $results
  * @return array Threaded results
@@ -2715,36 +2930,14 @@ class Model extends Object {
 		if ($state === 'before') {
 			return $query;
 		} elseif ($state === 'after') {
-			$return = $idMap = array();
-			$ids = Set::extract($results, '{n}.' . $this->alias . '.' . $this->primaryKey);
-
-			foreach ($results as $result) {
-				$result['children'] = array();
-				$id = $result[$this->alias][$this->primaryKey];
-				$parentId = $result[$this->alias]['parent_id'];
-				if (isset($idMap[$id]['children'])) {
-					$idMap[$id] = array_merge($result, (array)$idMap[$id]);
-				} else {
-					$idMap[$id] = array_merge($result, array('children' => array()));
-				}
-				if (!$parentId || !in_array($parentId, $ids)) {
-					$return[] =& $idMap[$id];
-				} else {
-					$idMap[$parentId]['children'][] =& $idMap[$id];
-				}
+			$parent = 'parent_id';
+			if (isset($query['parent'])) {
+				$parent = $query['parent'];
 			}
-			if (count($return) > 1) {
-				$ids = array_unique(Set::extract('/' . $this->alias . '/parent_id', $return));
-				if (count($ids) > 1) {
-					$root = $return[0][$this->alias]['parent_id'];
-					foreach ($return as $key => $value) {
-						if ($value[$this->alias]['parent_id'] != $root) {
-							unset($return[$key]);
-						}
-					}
-				}
-			}
-			return $return;
+			return Hash::nest($results, array(
+				'idPath' => '{n}.' . $this->alias . '.' . $this->primaryKey,
+				'parentPath' => '{n}.' . $this->alias . '.' . $parent
+			));
 		}
 	}
 
@@ -2756,15 +2949,10 @@ class Model extends Object {
  * @return array Set of filtered results
  */
 	protected function _filterResults($results, $primary = true) {
-		$return = $this->Behaviors->trigger(
-			'afterFind',
-			array(&$this, $results, $primary),
-			array('modParams' => 1)
-		);
-		if ($return !== true) {
-			$results = $return;
-		}
-		return $this->afterFind($results, $primary);
+		$event = new CakeEvent('Model.afterFind', $this, array($results, $primary));
+		$event->modParams = 0;
+		$this->getEventManager()->dispatch($event);
+		return $event->result;
 	}
 
 /**
@@ -2816,10 +3004,9 @@ class Model extends Object {
 				unset($fields[$field]);
 
 				$field = $value;
+				$value = null;
 				if (isset($this->data[$this->alias][$field])) {
 					$value = $this->data[$this->alias][$field];
-				} else {
-					$value = null;
 				}
 			}
 
@@ -2832,16 +3019,16 @@ class Model extends Object {
 			$fields = array('or' => $fields);
 		}
 		if (!empty($this->id)) {
-			$fields[$this->alias . '.' . $this->primaryKey . ' !='] =  $this->id;
+			$fields[$this->alias . '.' . $this->primaryKey . ' !='] = $this->id;
 		}
-		return ($this->find('count', array('conditions' => $fields, 'recursive' => -1)) == 0);
+		return !$this->find('count', array('conditions' => $fields, 'recursive' => -1));
 	}
 
 /**
  * Returns a resultset for a given SQL statement. Custom SQL queries should be performed with this method.
  *
  * @param string $sql,... SQL statement
- * @return array Resultset
+ * @return mixed Resultset array or boolean indicating success / failure depending on the query executed
  * @link http://book.cakephp.org/2.0/en/models/retrieving-your-data.html#model-query
  */
 	public function query($sql) {
@@ -2854,20 +3041,13 @@ class Model extends Object {
  * Returns true if all fields pass validation. Will validate hasAndBelongsToMany associations
  * that use the 'with' key as well. Since _saveMulti is incapable of exiting a save operation.
  *
- * Will validate the currently set data.  Use Model::set() or Model::create() to set the active data.
+ * Will validate the currently set data. Use Model::set() or Model::create() to set the active data.
  *
- * @param string $options An optional array of custom options to be made available in the beforeValidate callback
+ * @param array $options An optional array of custom options to be made available in the beforeValidate callback
  * @return boolean True if there are no errors
  */
 	public function validates($options = array()) {
-		$errors = $this->invalidFields($options);
-		if (empty($errors) && $errors !== false) {
-			$errors = $this->_validateWithModels($options);
-		}
-		if (is_array($errors)) {
-			return count($errors) === 0;
-		}
-		return $errors;
+		return $this->validator()->validates($options);
 	}
 
 /**
@@ -2878,192 +3058,9 @@ class Model extends Object {
  * @see Model::validates()
  */
 	public function invalidFields($options = array()) {
-		if (
-			!$this->Behaviors->trigger(
-				'beforeValidate',
-				array(&$this, $options),
-				array('break' => true, 'breakOn' => false)
-			) ||
-			$this->beforeValidate($options) === false
-		) {
-			return false;
-		}
-
-		if (!isset($this->validate) || empty($this->validate)) {
-			return $this->validationErrors;
-		}
-
-		$data = $this->data;
-		$methods = array_map('strtolower', get_class_methods($this));
-		$behaviorMethods = array_keys($this->Behaviors->methods());
-
-		if (isset($data[$this->alias])) {
-			$data = $data[$this->alias];
-		} elseif (!is_array($data)) {
-			$data = array();
-		}
-
-		$exists = $this->exists();
-
-		$_validate = $this->validate;
-		$whitelist = $this->whitelist;
-
-		if (!empty($options['fieldList'])) {
-			$whitelist = $options['fieldList'];
-		}
-
-		if (!empty($whitelist)) {
-			$validate = array();
-			foreach ((array)$whitelist as $f) {
-				if (!empty($this->validate[$f])) {
-					$validate[$f] = $this->validate[$f];
-				}
-			}
-			$this->validate = $validate;
-		}
-
-		$validationDomain = $this->validationDomain;
-		if (empty($validationDomain)) {
-			$validationDomain = 'default';
-		}
-
-		foreach ($this->validate as $fieldName => $ruleSet) {
-			if (!is_array($ruleSet) || (is_array($ruleSet) && isset($ruleSet['rule']))) {
-				$ruleSet = array($ruleSet);
-			}
-			$default = array(
-				'allowEmpty' => null,
-				'required' => null,
-				'rule' => 'blank',
-				'last' => true,
-				'on' => null
-			);
-
-			foreach ($ruleSet as $index => $validator) {
-				if (!is_array($validator)) {
-					$validator = array('rule' => $validator);
-				}
-				$validator = array_merge($default, $validator);
-
-				if (
-					empty($validator['on']) || ($validator['on'] == 'create' &&
-					!$exists) || ($validator['on'] == 'update' && $exists
-				)) {
-					$valid = true;
-					$requiredFail = (
-						(!isset($data[$fieldName]) && $validator['required'] === true) ||
-						(
-							isset($data[$fieldName]) && (empty($data[$fieldName]) &&
-							!is_numeric($data[$fieldName])) && $validator['allowEmpty'] === false
-						)
-					);
-
-					if (!$requiredFail && array_key_exists($fieldName, $data)) {
-						if (empty($data[$fieldName]) && $data[$fieldName] != '0' && $validator['allowEmpty'] === true) {
-							break;
-						}
-						if (is_array($validator['rule'])) {
-							$rule = $validator['rule'][0];
-							unset($validator['rule'][0]);
-							$ruleParams = array_merge(array($data[$fieldName]), array_values($validator['rule']));
-						} else {
-							$rule = $validator['rule'];
-							$ruleParams = array($data[$fieldName]);
-						}
-
-						if (in_array(strtolower($rule), $methods)) {
-							$ruleParams[] = $validator;
-							$ruleParams[0] = array($fieldName => $ruleParams[0]);
-							$valid = $this->dispatchMethod($rule, $ruleParams);
-						} elseif (in_array($rule, $behaviorMethods) || in_array(strtolower($rule), $behaviorMethods)) {
-							$ruleParams[] = $validator;
-							$ruleParams[0] = array($fieldName => $ruleParams[0]);
-							$valid = $this->Behaviors->dispatchMethod($this, $rule, $ruleParams);
-						} elseif (method_exists('Validation', $rule)) {
-							$valid = call_user_func_array(array('Validation', $rule), $ruleParams);
-						} elseif (!is_array($validator['rule'])) {
-							$valid = preg_match($rule, $data[$fieldName]);
-						} elseif (Configure::read('debug') > 0) {
-							trigger_error(__d('cake_dev', 'Could not find validation handler %s for %s', $rule, $fieldName), E_USER_WARNING);
-						}
-					}
-
-					if ($requiredFail || !$valid || (is_string($valid) && strlen($valid) > 0)) {
-						if (is_string($valid)) {
-							$message = $valid;
-						} elseif (isset($validator['message'])) {
-							$args = null;
-							if (is_array($validator['message'])) {
-								$message = $validator['message'][0];
-								$args = array_slice($validator['message'], 1);
-							} else {
-								$message = $validator['message'];
-							}
-							if (is_array($validator['rule']) && $args === null) {
-								$args = array_slice($ruleSet[$index]['rule'], 1);
-							}
-							$message = __d($validationDomain, $message, $args);
-						} elseif (is_string($index)) {
-							if (is_array($validator['rule'])) {
-								$args = array_slice($ruleSet[$index]['rule'], 1);
-								$message = __d($validationDomain, $index, $args);
-							} else {
-								$message = __d($validationDomain, $index);
-							}
-						} elseif (!$requiredFail && is_numeric($index) && count($ruleSet) > 1) {
-							$message = $index + 1;
-						} else {
-							$message = __d('cake_dev', 'This field cannot be left blank');
-						}
-
-						$this->invalidate($fieldName, $message);
-						if ($validator['last']) {
-							break;
-						}
-					}
-				}
-			}
-		}
-		$this->validate = $_validate;
-		return $this->validationErrors;
+		return $this->validator()->errors($options);
 	}
 
-/**
- * Runs validation for hasAndBelongsToMany associations that have 'with' keys
- * set. And data in the set() data set.
- *
- * @param array $options Array of options to use on Valdation of with models
- * @return boolean Failure of validation on with models.
- * @see Model::validates()
- */
-	protected function _validateWithModels($options) {
-		$valid = true;
-		foreach ($this->hasAndBelongsToMany as $assoc => $association) {
-			if (empty($association['with']) || !isset($this->data[$assoc])) {
-				continue;
-			}
-			list($join) = $this->joinModel($this->hasAndBelongsToMany[$assoc]['with']);
-			$data = $this->data[$assoc];
-
-			$newData = array();
-			foreach ((array)$data as $row) {
-				if (isset($row[$this->hasAndBelongsToMany[$assoc]['associationForeignKey']])) {
-					$newData[] = $row;
-				} elseif (isset($row[$join]) && isset($row[$join][$this->hasAndBelongsToMany[$assoc]['associationForeignKey']])) {
-					$newData[] = $row[$join];
-				}
-			}
-			if (empty($newData)) {
-				continue;
-			}
-			foreach ($newData as $data) {
-				$data[$this->hasAndBelongsToMany[$assoc]['foreignKey']] = $this->id;
-				$this->{$join}->create($data);
-				$valid = ($valid && $this->{$join}->validates($options));
-			}
-		}
-		return $valid;
-	}
 /**
  * Marks a field as invalid, optionally setting the name of validation
  * rule (in case of multiple validation for field) that was broken.
@@ -3074,10 +3071,7 @@ class Model extends Object {
  * @return void
  */
 	public function invalidate($field, $value = true) {
-		if (!is_array($this->validationErrors)) {
-			$this->validationErrors = array();
-		}
-		$this->validationErrors[$field] []= $value;
+		$this->validator()->invalidate($field, $value);
 	}
 
 /**
@@ -3089,7 +3083,7 @@ class Model extends Object {
 	public function isForeignKey($field) {
 		$foreignKeys = array();
 		if (!empty($this->belongsTo)) {
-			foreach ($this->belongsTo as $assoc => $data) {
+			foreach ($this->belongsTo as $data) {
 				$foreignKeys[] = $data['foreignKey'];
 			}
 		}
@@ -3128,26 +3122,17 @@ class Model extends Object {
 		if (empty($this->id) || (is_array($this->id) && isset($this->id[0]) && empty($this->id[0]))) {
 			return false;
 		}
-
 		if (!is_array($this->id)) {
 			return $this->id;
 		}
-
-		if (empty($this->id)) {
-			return false;
-		}
-
 		if (isset($this->id[$list]) && !empty($this->id[$list])) {
 			return $this->id[$list];
-		} elseif (isset($this->id[$list])) {
+		}
+		if (isset($this->id[$list])) {
 			return false;
 		}
 
-		foreach ($this->id as $id) {
-			return $id;
-		}
-
-		return false;
+		return current($this->id);
 	}
 
 /**
@@ -3171,7 +3156,7 @@ class Model extends Object {
 /**
  * Sets the ID of the last record this model inserted
  *
- * @param mixed $id Last inserted ID
+ * @param integer|string $id Last inserted ID
  * @return void
  */
 	public function setInsertID($id) {
@@ -3200,13 +3185,13 @@ class Model extends Object {
  * Sets the DataSource to which this model is bound.
  *
  * @param string $dataSource The name of the DataSource, as defined in app/Config/database.php
- * @return boolean True on success
+ * @return void
  * @throws MissingConnectionException
  */
 	public function setDataSource($dataSource = null) {
 		$oldConfig = $this->useDbConfig;
 
-		if ($dataSource != null) {
+		if ($dataSource) {
 			$this->useDbConfig = $dataSource;
 		}
 		$db = ConnectionManager::getDataSource($this->useDbConfig);
@@ -3220,9 +3205,7 @@ class Model extends Object {
 			$this->tablePrefix = $db->config['prefix'];
 		}
 
-		if (empty($db) || !is_object($db)) {
-			throw new MissingConnectionException(array('class' => $this->name));
-		}
+		$this->schemaName = $db->getSchemaName();
 	}
 
 /**
@@ -3254,7 +3237,7 @@ class Model extends Object {
  * @return array Associations
  */
 	public function getAssociated($type = null) {
-		if ($type == null) {
+		if (!$type) {
 			$associated = array();
 			foreach ($this->_associations as $assoc) {
 				if (!empty($this->{$assoc})) {
@@ -3265,33 +3248,34 @@ class Model extends Object {
 				}
 			}
 			return $associated;
-		} elseif (in_array($type, $this->_associations)) {
+		}
+		if (in_array($type, $this->_associations)) {
 			if (empty($this->{$type})) {
 				return array();
 			}
 			return array_keys($this->{$type});
-		} else {
-			$assoc = array_merge(
-				$this->hasOne,
-				$this->hasMany,
-				$this->belongsTo,
-				$this->hasAndBelongsToMany
-			);
-			if (array_key_exists($type, $assoc)) {
-				foreach ($this->_associations as $a) {
-					if (isset($this->{$a}[$type])) {
-						$assoc[$type]['association'] = $a;
-						break;
-					}
-				}
-				return $assoc[$type];
-			}
-			return null;
 		}
+
+		$assoc = array_merge(
+			$this->hasOne,
+			$this->hasMany,
+			$this->belongsTo,
+			$this->hasAndBelongsToMany
+		);
+		if (array_key_exists($type, $assoc)) {
+			foreach ($this->_associations as $a) {
+				if (isset($this->{$a}[$type])) {
+					$assoc[$type]['association'] = $a;
+					break;
+				}
+			}
+			return $assoc[$type];
+		}
+		return null;
 	}
 
 /**
- * Gets the name and fields to be used by a join model.  This allows specifying join fields
+ * Gets the name and fields to be used by a join model. This allows specifying join fields
  * in the association definition.
  *
  * @param string|array $assoc The model to be joined
@@ -3302,12 +3286,13 @@ class Model extends Object {
 		if (is_string($assoc)) {
 			list(, $assoc) = pluginSplit($assoc);
 			return array($assoc, array_keys($this->{$assoc}->schema()));
-		} elseif (is_array($assoc)) {
+		}
+		if (is_array($assoc)) {
 			$with = key($assoc);
 			return array($with, array_unique(array_merge($assoc[$with], $keys)));
 		}
 		trigger_error(
-			__d('cake_dev', 'Invalid join model settings in %s', $model->alias),
+			__d('cake_dev', 'Invalid join model settings in %s. The association parameter has the wrong type, expecting a string or array, but was passed type: %s', $this->alias, gettype($assoc)),
 			E_USER_WARNING
 		);
 	}
@@ -3319,7 +3304,7 @@ class Model extends Object {
  * @param array $queryData Data used to execute this query, i.e. conditions, order, etc.
  * @return mixed true if the operation should continue, false if it should abort; or, modified
  *               $queryData to continue with new $queryData
- * @link http://book.cakephp.org/view/1048/Callback-Methods#beforeFind-1049
+ * @link http://book.cakephp.org/2.0/en/models/callback-methods.html#beforefind
  */
 	public function beforeFind($queryData) {
 		return true;
@@ -3332,7 +3317,7 @@ class Model extends Object {
  * @param mixed $results The results of the find operation
  * @param boolean $primary Whether this model is being queried directly (vs. being queried as an association)
  * @return mixed Result of the find operation
- * @link http://book.cakephp.org/view/1048/Callback-Methods#afterFind-1050
+ * @link http://book.cakephp.org/2.0/en/models/callback-methods.html#afterfind
  */
 	public function afterFind($results, $primary = false) {
 		return $results;
@@ -3344,7 +3329,7 @@ class Model extends Object {
  *
  * @param array $options
  * @return boolean True if the operation should continue, false if it should abort
- * @link http://book.cakephp.org/view/1048/Callback-Methods#beforeSave-1052
+ * @link http://book.cakephp.org/2.0/en/models/callback-methods.html#beforesave
  */
 	public function beforeSave($options = array()) {
 		return true;
@@ -3355,7 +3340,7 @@ class Model extends Object {
  *
  * @param boolean $created True if this save created a new record
  * @return void
- * @link http://book.cakephp.org/view/1048/Callback-Methods#afterSave-1053
+ * @link http://book.cakephp.org/2.0/en/models/callback-methods.html#aftersave
  */
 	public function afterSave($created) {
 	}
@@ -3365,7 +3350,7 @@ class Model extends Object {
  *
  * @param boolean $cascade If true records that depend on this record will also be deleted
  * @return boolean True if the operation should continue, false if it should abort
- * @link http://book.cakephp.org/view/1048/Callback-Methods#beforeDelete-1054
+ * @link http://book.cakephp.org/2.0/en/models/callback-methods.html#beforedelete
  */
 	public function beforeDelete($cascade = true) {
 		return true;
@@ -3375,7 +3360,7 @@ class Model extends Object {
  * Called after every deletion operation.
  *
  * @return void
- * @link http://book.cakephp.org/view/1048/Callback-Methods#afterDelete-1055
+ * @link http://book.cakephp.org/2.0/en/models/callback-methods.html#afterdelete
  */
 	public function afterDelete() {
 	}
@@ -3386,17 +3371,25 @@ class Model extends Object {
  *
  * @param array $options Options passed from model::save(), see $options of model::save().
  * @return boolean True if validate operation should continue, false to abort
- * @link http://book.cakephp.org/view/1048/Callback-Methods#beforeValidate-1051
+ * @link http://book.cakephp.org/2.0/en/models/callback-methods.html#beforevalidate
  */
 	public function beforeValidate($options = array()) {
 		return true;
 	}
 
 /**
+ * Called after data has been checked for errors
+ *
+ * @return void
+ */
+	public function afterValidate() {
+	}
+
+/**
  * Called when a DataSource-level error occurs.
  *
  * @return void
- * @link http://book.cakephp.org/view/1048/Callback-Methods#onError-1056
+ * @link http://book.cakephp.org/2.0/en/models/callback-methods.html#onerror
  */
 	public function onError() {
 	}
@@ -3407,7 +3400,6 @@ class Model extends Object {
  * @param string $type If null this deletes cached views if Cache.check is true
  *     Will be used to allow deleting query cache also
  * @return boolean true on delete
- * @todo
  */
 	protected function _clearCache($type = null) {
 		if ($type === null) {
@@ -3430,4 +3422,21 @@ class Model extends Object {
 			//Will use for query cache deleting
 		}
 	}
+
+/**
+ * Returns an instance of a model validator for this class
+ *
+ * @param ModelValidator Model validator instance.
+ *  If null a new ModelValidator instance will be made using current model object
+ * @return ModelValidator
+ */
+	public function validator(ModelValidator $instance = null) {
+		if ($instance) {
+			$this->_validator = $instance;
+		} elseif (!$this->_validator) {
+			$this->_validator = new ModelValidator($this);
+		}
+		return $this->_validator;
+	}
+
 }

@@ -7,24 +7,29 @@
  * PHP 5
  *
  * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
- * Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
+ * For full copyright and license information, please see the LICENSE.txt
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright     Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  * @link          http://cakephp.org CakePHP(tm) Project
  * @since         CakePHP(tm) v 1.2.0.5012
  * @license       MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
+
+App::uses('AppShell', 'Console/Command');
 App::uses('File', 'Utility');
 
 /**
  * API shell to show method signatures of CakePHP core classes.
  *
+ * Implementation of a Cake Shell to show CakePHP core method signatures.
+ *
  * @package       Cake.Console.Command
  */
-class ApiShell extends Shell {
+class ApiShell extends AppShell {
 
 /**
  * Map between short name for paths and real paths.
@@ -69,12 +74,13 @@ class ApiShell extends Shell {
 			$path = $this->paths['core'];
 		}
 
-		if (count($this->args) == 1) {
-			$file = $type;
-			$class = Inflector::camelize($type);
-		} elseif (count($this->args) > 1) {
+		$count = count($this->args);
+		if ($count > 1) {
 			$file = Inflector::underscore($this->args[1]);
 			$class = Inflector::camelize($this->args[1]);
+		} elseif ($count) {
+			$file = $type;
+			$class = Inflector::camelize($type);
 		}
 		$objects = App::objects('class', $path);
 		if (in_array($class, $objects)) {
@@ -88,7 +94,7 @@ class ApiShell extends Shell {
 			$this->error(__d('cake_console', '%s not found', $class));
 		}
 
-		$parsed = $this->_parseClass($path . $class .'.php', $class);
+		$parsed = $this->_parseClass($path . $class . '.php', $class);
 
 		if (!empty($parsed)) {
 			if (isset($this->params['method'])) {
@@ -97,7 +103,7 @@ class ApiShell extends Shell {
 					$this->_stop();
 				}
 				$method = $parsed[$this->params['method']];
-				$this->out($class .'::'.$method['method'] . $method['parameters']);
+				$this->out($class . '::' . $method['method'] . $method['parameters']);
 				$this->hr();
 				$this->out($method['comment'], true);
 			} else {
@@ -123,7 +129,7 @@ class ApiShell extends Shell {
 					if (isset($methods[--$number])) {
 						$method = $parsed[$methods[$number]];
 						$this->hr();
-						$this->out($class .'::'.$method['method'] . $method['parameters']);
+						$this->out($class . '::' . $method['method'] . $method['parameters']);
 						$this->hr();
 						$this->out($method['comment'], true);
 					}
@@ -149,26 +155,27 @@ class ApiShell extends Shell {
 		))->description(__d('cake_console', 'Lookup doc block comments for classes in CakePHP.'));
 		return $parser;
 	}
+
 /**
  * Show help for this shell.
  *
  * @return void
  */
 	public function help() {
-		$head  = "Usage: cake api [<type>] <className> [-m <method>]\n";
+		$head = "Usage: cake api [<type>] <className> [-m <method>]\n";
 		$head .= "-----------------------------------------------\n";
 		$head .= "Parameters:\n\n";
 
 		$commands = array(
 			'path' => "\t<type>\n" .
-				"\t\tEither a full path or type of class (model, behavior, controller, component, view, helper).\n".
-				"\t\tAvailable values:\n\n".
-				"\t\tbehavior\tLook for class in CakePHP behavior path\n".
-				"\t\tcache\tLook for class in CakePHP cache path\n".
-				"\t\tcontroller\tLook for class in CakePHP controller path\n".
-				"\t\tcomponent\tLook for class in CakePHP component path\n".
-				"\t\thelper\tLook for class in CakePHP helper path\n".
-				"\t\tmodel\tLook for class in CakePHP model path\n".
+				"\t\tEither a full path or type of class (model, behavior, controller, component, view, helper).\n" .
+				"\t\tAvailable values:\n\n" .
+				"\t\tbehavior\tLook for class in CakePHP behavior path\n" .
+				"\t\tcache\tLook for class in CakePHP cache path\n" .
+				"\t\tcontroller\tLook for class in CakePHP controller path\n" .
+				"\t\tcomponent\tLook for class in CakePHP component path\n" .
+				"\t\thelper\tLook for class in CakePHP helper path\n" .
+				"\t\tmodel\tLook for class in CakePHP model path\n" .
 				"\t\tview\tLook for class in CakePHP view path\n",
 			'className' => "\t<className>\n" .
 				"\t\tA CakePHP core class name (e.g: Component, HtmlHelper).\n"
@@ -198,7 +205,7 @@ class ApiShell extends Shell {
 		$parsed = array();
 
 		if (!class_exists($class)) {
-			if (!include_once($path)) {
+			if (!include_once $path) {
 				$this->err(__d('cake_console', '%s could not be found', $path));
 			}
 		}
@@ -229,4 +236,5 @@ class ApiShell extends Shell {
 		ksort($parsed);
 		return $parsed;
 	}
+
 }

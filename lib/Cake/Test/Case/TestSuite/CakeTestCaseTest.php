@@ -7,12 +7,13 @@
  * PHP version 5
  *
  * CakePHP : Rapid Development Framework (http://cakephp.org)
- * Copyright 2005-2011, Cake Software Foundation, Inc.
+ * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
+ * For full copyright and license information, please see the LICENSE.txt
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright     Copyright 2005-2011, Cake Software Foundation, Inc.
+ * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  * @link          http://cakephp.org CakePHP Project
  * @package       Cake.Test.Case.TestSuite
  * @since         CakePHP v 1.2.0.4487
@@ -22,18 +23,19 @@
 App::uses('Controller', 'Controller');
 App::uses('CakeHtmlReporter', 'TestSuite/Reporter');
 
-if (!class_exists('AppController', false)) {
-	require_once CAKE . 'Controller' . DS . 'AppController.php';
-} elseif (!defined('APP_CONTROLLER_EXISTS')) {
-	define('APP_CONTROLLER_EXISTS', true);
-}
-
 /**
  * CakeTestCaseTest
  *
  * @package       Cake.Test.Case.TestSuite
  */
 class CakeTestCaseTest extends CakeTestCase {
+
+/**
+ * fixtures property
+ *
+ * @var array
+ */
+	public $fixtures = array('core.post', 'core.author', 'core.test_plugin_comment');
 
 	public static function setUpBeforeClass() {
 		require_once CAKE . 'Test' . DS . 'Fixture' . DS . 'AssertTagsTestCase.php';
@@ -214,8 +216,8 @@ class CakeTestCaseTest extends CakeTestCase {
 		$manager->expects($this->once())->method('unload');
 		$result = $test->run();
 		$this->assertEquals(1, $result->errorCount());
-
 	}
+
 /**
  * testSkipIf
  *
@@ -239,5 +241,152 @@ class CakeTestCaseTest extends CakeTestCase {
 	public function testSetupBackUpValues() {
 		$this->assertArrayHasKey('debug', $this->_configure);
 		$this->assertArrayHasKey('Plugin', $this->_pathRestore);
+	}
+
+/**
+ * test assertTextNotEquals()
+ *
+ * @return void
+ */
+	public function testAssertTextNotEquals() {
+		$one = "\r\nOne\rTwooo";
+		$two = "\nOne\nTwo";
+		$this->assertTextNotEquals($one, $two);
+	}
+
+/**
+ * test assertTextEquals()
+ *
+ * @return void
+ */
+	public function testAssertTextEquals() {
+		$one = "\r\nOne\rTwo";
+		$two = "\nOne\nTwo";
+		$this->assertTextEquals($one, $two);
+	}
+
+/**
+ * test assertTextStartsWith()
+ *
+ * @return void
+ */
+	public function testAssertTextStartsWith() {
+		$stringDirty = "some\nstring\r\nwith\rdifferent\nline endings!";
+		$stringClean = "some\nstring\nwith\ndifferent\nline endings!";
+
+		$this->assertStringStartsWith("some\nstring", $stringDirty);
+		$this->assertStringStartsNotWith("some\r\nstring\r\nwith", $stringDirty);
+		$this->assertStringStartsNotWith("some\nstring\nwith", $stringDirty);
+
+		$this->assertTextStartsWith("some\nstring\nwith", $stringDirty);
+		$this->assertTextStartsWith("some\r\nstring\r\nwith", $stringDirty);
+	}
+
+/**
+ * test assertTextStartsNotWith()
+ *
+ * @return void
+ */
+	public function testAssertTextStartsNotWith() {
+		$stringDirty = "some\nstring\r\nwith\rdifferent\nline endings!";
+		$stringClean = "some\nstring\nwith\ndifferent\nline endings!";
+
+		$this->assertTextStartsNotWith("some\nstring\nwithout", $stringDirty);
+	}
+
+/**
+ * test assertTextEndsWith()
+ *
+ * @return void
+ */
+	public function testAssertTextEndsWith() {
+		$stringDirty = "some\nstring\r\nwith\rdifferent\nline endings!";
+		$stringClean = "some\nstring\nwith\ndifferent\nline endings!";
+
+		$this->assertTextEndsWith("string\nwith\r\ndifferent\rline endings!", $stringDirty);
+		$this->assertTextEndsWith("string\r\nwith\ndifferent\nline endings!", $stringDirty);
+	}
+
+/**
+ * test assertTextEndsNotWith()
+ *
+ * @return void
+ */
+	public function testAssertTextEndsNotWith() {
+		$stringDirty = "some\nstring\r\nwith\rdifferent\nline endings!";
+		$stringClean = "some\nstring\nwith\ndifferent\nline endings!";
+
+		$this->assertStringEndsNotWith("different\nline endings", $stringDirty);
+		$this->assertTextEndsNotWith("different\rline endings", $stringDirty);
+	}
+
+/**
+ * test assertTextContains()
+ *
+ * @return void
+ */
+	public function testAssertTextContains() {
+		$stringDirty = "some\nstring\r\nwith\rdifferent\nline endings!";
+		$stringClean = "some\nstring\nwith\ndifferent\nline endings!";
+
+		$this->assertContains("different", $stringDirty);
+		$this->assertNotContains("different\rline", $stringDirty);
+
+		$this->assertTextContains("different\rline", $stringDirty);
+	}
+
+/**
+ * test assertTextNotContains()
+ *
+ * @return void
+ */
+	public function testAssertTextNotContains() {
+		$stringDirty = "some\nstring\r\nwith\rdifferent\nline endings!";
+		$stringClean = "some\nstring\nwith\ndifferent\nline endings!";
+
+		$this->assertTextNotContains("different\rlines", $stringDirty);
+	}
+
+/**
+ * test getMockForModel()
+ *
+ * @return void
+ */
+	public function testGetMockForModel() {
+		$Post = $this->getMockForModel('Post');
+
+		$this->assertInstanceOf('Post', $Post);
+		$this->assertNull($Post->save(array()));
+		$this->assertNull($Post->find('all'));
+		$this->assertEquals('posts', $Post->useTable);
+
+		$Post = $this->getMockForModel('Post', array('save'));
+
+		$this->assertNull($Post->save(array()));
+		$this->assertInternalType('array', $Post->find('all'));
+	}
+
+/**
+ * test getMockForModel() with plugin models
+ *
+ * @return void
+ */
+	public function testGetMockForModelWithPlugin() {
+		$TestPluginComment = $this->getMockForModel('TestPlugin.TestPluginComment');
+
+		$result = ClassRegistry::init('TestPlugin.TestPluginComment');
+		$this->assertInstanceOf('TestPluginComment', $result);
+
+		$TestPluginComment = $this->getMockForModel('TestPlugin.TestPluginComment', array('save'));
+
+		$this->assertInstanceOf('TestPluginComment', $TestPluginComment);
+		$TestPluginComment->expects($this->at(0))
+			->method('save')
+			->will($this->returnValue(true));
+		$TestPluginComment->expects($this->at(1))
+			->method('save')
+			->will($this->returnValue(false));
+		$this->assertTrue($TestPluginComment->save(array()));
+		$this->assertFalse($TestPluginComment->save(array()));
 	}
 }

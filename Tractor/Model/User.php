@@ -1,4 +1,5 @@
 <?php 
+App::uses('AuthComponent', 'Controller/Component');
 class User extends AppModel {
     var $name = 'User';
     var $actsAs = array('Multivalidatable', 'Containable'); 	
@@ -105,8 +106,9 @@ class User extends AppModel {
 	 }
  
  
-    function beforeSave()  
+    function beforeSave($options = array())  
     {  
+	
      $this->data['User']['password'] = AuthComponent::password($this->data['User']['password']);   
      parent::beforeSave();
      return true;  

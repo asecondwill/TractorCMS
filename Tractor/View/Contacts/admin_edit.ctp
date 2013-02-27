@@ -79,11 +79,11 @@ $this->Js->buffer($a);
 		<h2>Info</h2>
 			<table>
 				<tr>
-					<th>Created</th><td><?php echo $this->Time->niceShort($this->data['Contact']['created']); ?></td>
+					<th>Created</th><td><?php echo $this->Time->niceShort($this->request->data['Contact']['created']); ?></td>
 				</tr>
 				
 <tr>
-					<th>Modified</th><td><?php echo $this->Time->niceShort($this->data['Contact']['modified']); ?></td>
+					<th>Modified</th><td><?php echo $this->Time->niceShort($this->request->data['Contact']['modified']); ?></td>
 				</tr>
 			</table>
 		</div>

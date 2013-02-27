@@ -84,7 +84,7 @@ $this->Js->buffer($a);
 		<p class="hint">Drag the handles to order</p>
 		<table id='element-table' cellpadding="0" cellspacing="0">
 		        <?php
-		        foreach($this->data['Featured'] as $content){
+		        foreach($this->request->data['Featured'] as $content){
 		        	echo "<tr><td class='drag-handle'></td><td>" . $content['title']   . "<input type='hidden' name='data[Featured][Featured][]' value='" . $content['id'] . "'></td><td class='nodrag nodrop remove'>-</td></tr>";
 		        }
 		        ?>

@@ -8,7 +8,7 @@
 		<div class="events aside_item">
 			
 			<?php
-				echo $this->Menu->setup($contents, array('selected' => $this->here, 'type' => 'context', 'menuClass' => 'context-menu'));
+				echo $this->Menu->setup($contents, array('selected' => $this->request->here, 'type' => 'context', 'menuClass' => 'context-menu'));
 			 ?>
 		</div>
 		
@@ -29,7 +29,7 @@
 	<article>
 		<h1 class="eventcategory"><?php echo $content['CalendarCategory']['title'];?></h1>
 		<?php echo $this->Layout->filter ($content['CalendarCategory']['body']);?>
-		<?php //debug($this->params['url']['ext']); ?>
+		<?php //debug($this->request->params['url']['ext']); ?>
 		<!-- EVENTS -->
 		<?php 
 			$i = 0 ;

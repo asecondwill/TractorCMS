@@ -10,19 +10,20 @@
  * PHP 5
  *
  * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
- * Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
+ * For full copyright and license information, please see the LICENSE.txt
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright     Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  * @link          http://cakephp.org CakePHP(tm) Project
  * @package       Cake.Model.Datasource
  * @since         CakePHP(tm) v .0.10.0.1222
  * @license       MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 
-App::uses('Set', 'Utility');
+App::uses('Hash', 'Utility');
 App::uses('Security', 'Utility');
 
 /**
@@ -71,13 +72,6 @@ class CakeSession {
 	public static $lastError = null;
 
 /**
- * 'Security.level' setting, "high", "medium", or "low".
- *
- * @var string
- */
-	public static $security = null;
-
-/**
  * Start time for this session.
  *
  * @var integer
@@ -121,7 +115,7 @@ class CakeSession {
 
 /**
  * Number of requests that can occur during a session time without the session being renewed.
- * This feature is only used when `Session.harden` is set to true.
+ * This feature is only used when config value `Session.autoRegenerate` is set to true.
  *
  * @var integer
  * @see CakeSession::_checkValid()
@@ -129,21 +123,22 @@ class CakeSession {
 	public static $requestCountdown = 10;
 
 /**
- * Constructor.
+ * Pseudo constructor.
  *
  * @param string $base The base path for the Session
- * @param boolean $start Should session be started right now
  * @return void
  */
-	public static function init($base = null, $start = true) {
+	public static function init($base = null) {
 		self::$time = time();
 
 		$checkAgent = Configure::read('Session.checkAgent');
-		if (($checkAgent === true || $checkAgent === null) && env('HTTP_USER_AGENT') != null) {
+		if (($checkAgent === true || $checkAgent === null) && env('HTTP_USER_AGENT')) {
 			self::$_userAgent = md5(env('HTTP_USER_AGENT') . Configure::read('Security.salt'));
 		}
 		self::_setPath($base);
 		self::_setHost(env('HTTP_HOST'));
+
+		register_shutdown_function('session_write_close');
 	}
 
 /**
@@ -158,10 +153,10 @@ class CakeSession {
 			return;
 		}
 		if (strpos($base, 'index.php') !== false) {
-		   $base = str_replace('index.php', '', $base);
+			$base = str_replace('index.php', '', $base);
 		}
 		if (strpos($base, '?') !== false) {
-		   $base = str_replace('?', '', $base);
+			$base = str_replace('?', '', $base);
 		}
 		self::$path = $base;
 	}
@@ -188,6 +183,7 @@ class CakeSession {
 		if (self::started()) {
 			return true;
 		}
+		self::init();
 		$id = self::id();
 		session_write_close();
 		self::_configureSession();
@@ -223,8 +219,7 @@ class CakeSession {
 		if (empty($name)) {
 			return false;
 		}
-		$result = Set::classicExtract($_SESSION, $name);
-		return isset($result);
+		return Hash::get($_SESSION, $name) !== null;
 	}
 
 /**
@@ -252,8 +247,8 @@ class CakeSession {
  */
 	public static function delete($name) {
 		if (self::check($name)) {
-			self::_overwrite($_SESSION, Set::remove($_SESSION, $name));
-			return (self::check($name) == false);
+			self::_overwrite($_SESSION, Hash::remove($_SESSION, $name));
+			return !self::check($name);
 		}
 		self::_setError(2, __d('cake_dev', "%s doesn't exist", $name));
 		return false;
@@ -288,9 +283,8 @@ class CakeSession {
 	protected static function _error($errorNumber) {
 		if (!is_array(self::$error) || !array_key_exists($errorNumber, self::$error)) {
 			return false;
-		} else {
-			return self::$error[$errorNumber];
 		}
+		return self::$error[$errorNumber];
 	}
 
 /**
@@ -325,7 +319,7 @@ class CakeSession {
 /**
  * Tests that the user agent is valid and that the session hasn't 'timed out'.
  * Since timeouts are implemented in CakeSession it checks the current self::$time
- * against the time the session is set to expire.  The User agent is only checked
+ * against the time the session is set to expire. The User agent is only checked
  * if Session.checkAgent == true.
  *
  * @return boolean
@@ -349,13 +343,16 @@ class CakeSession {
 		if ($userAgent) {
 			self::$_userAgent = $userAgent;
 		}
+		if (empty(self::$_userAgent)) {
+			CakeSession::init(self::$path);
+		}
 		return self::$_userAgent;
 	}
 
 /**
  * Returns given session variable, or all of them, if no parameters given.
  *
- * @param mixed $name The name of the session variable (or a path as sent to Set.extract)
+ * @param string|array $name The name of the session variable (or a path as sent to Set.extract)
  * @return mixed The value of the session variable
  */
 	public static function read($name = null) {
@@ -368,9 +365,9 @@ class CakeSession {
 		if (empty($name)) {
 			return false;
 		}
-		$result = Set::classicExtract($_SESSION, $name);
+		$result = Hash::get($_SESSION, $name);
 
-		if (!is_null($result)) {
+		if (isset($result)) {
 			return $result;
 		}
 		self::_setError(2, "$name doesn't exist");
@@ -393,7 +390,7 @@ class CakeSession {
 /**
  * Writes value to given session variable name.
  *
- * @param mixed $name Name of variable
+ * @param string|array $name Name of variable
  * @param string $value Value to write
  * @return boolean True if the write was successful, false if the write failed
  */
@@ -409,8 +406,8 @@ class CakeSession {
 			$write = array($name => $value);
 		}
 		foreach ($write as $key => $val) {
-			self::_overwrite($_SESSION, Set::insert($_SESSION, $key, $val));
-			if (Set::classicExtract($_SESSION, $key) !== $val) {
+			self::_overwrite($_SESSION, Hash::insert($_SESSION, $key, $val));
+			if (Hash::get($_SESSION, $key) !== $val) {
 				return false;
 			}
 		}
@@ -423,9 +420,10 @@ class CakeSession {
  * @return void
  */
 	public static function destroy() {
-		if (self::started()) {
-			session_destroy();
+		if (!self::started()) {
+			self::start();
 		}
+		session_destroy();
 		self::clear();
 	}
 
@@ -451,12 +449,11 @@ class CakeSession {
  */
 	protected static function _configureSession() {
 		$sessionConfig = Configure::read('Session');
-		$iniSet = function_exists('ini_set');
 
 		if (isset($sessionConfig['defaults'])) {
 			$defaults = self::_defaultConfig($sessionConfig['defaults']);
 			if ($defaults) {
-				$sessionConfig = Set::merge($defaults, $sessionConfig);
+				$sessionConfig = Hash::merge($defaults, $sessionConfig);
 			}
 		}
 		if (!isset($sessionConfig['ini']['session.cookie_secure']) && env('HTTPS')) {
@@ -473,6 +470,12 @@ class CakeSession {
 		}
 		if (!empty($sessionConfig['handler'])) {
 			$sessionConfig['ini']['session.save_handler'] = 'user';
+		}
+		if (!isset($sessionConfig['ini']['session.gc_maxlifetime'])) {
+			$sessionConfig['ini']['session.gc_maxlifetime'] = $sessionConfig['timeout'] * 60;
+		}
+		if (!isset($sessionConfig['ini']['session.cookie_httponly'])) {
+			$sessionConfig['ini']['session.cookie_httponly'] = 1;
 		}
 
 		if (empty($_SESSION)) {
@@ -536,17 +539,14 @@ class CakeSession {
 			'php' => array(
 				'cookie' => 'CAKEPHP',
 				'timeout' => 240,
-				'cookieTimeout' => 240,
 				'ini' => array(
 					'session.use_trans_sid' => 0,
-					'session.cookie_path' => self::$path,
-					'session.save_handler' => 'files'
+					'session.cookie_path' => self::$path
 				)
 			),
 			'cake' => array(
 				'cookie' => 'CAKEPHP',
 				'timeout' => 240,
-				'cookieTimeout' => 240,
 				'ini' => array(
 					'session.use_trans_sid' => 0,
 					'url_rewriter.tags' => '',
@@ -561,7 +561,6 @@ class CakeSession {
 			'cache' => array(
 				'cookie' => 'CAKEPHP',
 				'timeout' => 240,
-				'cookieTimeout' => 240,
 				'ini' => array(
 					'session.use_trans_sid' => 0,
 					'url_rewriter.tags' => '',
@@ -578,7 +577,6 @@ class CakeSession {
 			'database' => array(
 				'cookie' => 'CAKEPHP',
 				'timeout' => 240,
-				'cookieTimeout' => 240,
 				'ini' => array(
 					'session.use_trans_sid' => 0,
 					'url_rewriter.tags' => '',
@@ -610,11 +608,9 @@ class CakeSession {
 			if (empty($_SESSION)) {
 				$_SESSION = array();
 			}
-		} elseif (!isset($_SESSION)) {
-			session_cache_limiter ("must-revalidate");
-			session_start();
-			header ('P3P: CP="NOI ADM DEV PSAi COM NAV OUR OTRo STP IND DEM"');
 		} else {
+			// For IE<=8
+			session_cache_limiter("must-revalidate");
 			session_start();
 		}
 		return true;
@@ -634,14 +630,13 @@ class CakeSession {
 			$sessionConfig = Configure::read('Session');
 
 			if (self::_validAgentAndTime()) {
-				$time = $config['time'];
 				self::write('Config.time', self::$sessionTime);
 				if (isset($sessionConfig['autoRegenerate']) && $sessionConfig['autoRegenerate'] === true) {
 					$check = $config['countdown'];
 					$check -= 1;
 					self::write('Config.countdown', $check);
 
-					if (time() > ($time - ($sessionConfig['timeout'] * 60) + 2) || $check < 1) {
+					if ($check < 1) {
 						self::renew();
 						self::write('Config.countdown', self::$requestCountdown);
 					}
@@ -667,7 +662,7 @@ class CakeSession {
  */
 	public static function renew() {
 		if (session_id()) {
-			if (session_id() != '' || isset($_COOKIE[session_name()])) {
+			if (session_id() || isset($_COOKIE[session_name()])) {
 				setcookie(Configure::read('Session.cookie'), '', time() - 42000, self::$path);
 			}
 			session_regenerate_id(true);
@@ -688,65 +683,5 @@ class CakeSession {
 		self::$error[$errorNumber] = $errorMessage;
 		self::$lastError = $errorNumber;
 	}
+
 }
-
-
-/**
- * Interface for Session handlers.  Custom session handler classes should implement
- * this interface as it allows CakeSession know how to map methods to session_set_save_handler()
- *
- * @package       Cake.Model.Datasource
- */
-interface CakeSessionHandlerInterface {
-/**
- * Method called on open of a session.
- *
- * @return boolean Success
- */
-	public function open();
-
-/**
- * Method called on close of a session.
- *
- * @return boolean Success
- */
-	public function close();
-
-/**
- * Method used to read from a session.
- *
- * @param mixed $id The key of the value to read
- * @return mixed The value of the key or false if it does not exist
- */
-	public function read($id);
-
-/**
- * Helper function called on write for sessions.
- *
- * @param integer $id ID that uniquely identifies session in database
- * @param mixed $data The value of the data to be saved.
- * @return boolean True for successful write, false otherwise.
- */
-	public function write($id, $data);
-
-/**
- * Method called on the destruction of a session.
- *
- * @param integer $id ID that uniquely identifies session in database
- * @return boolean True for successful delete, false otherwise.
- */
-	public function destroy($id);
-
-/**
- * Run the Garbage collection on the session storage.  This method should vacuum all
- * expired or dead sessions.
- *
- * @param integer $expires Timestamp (defaults to current time)
- * @return boolean Success
- */
-	public function gc($expires = null);
-}
-
-
-// Initialize the session
-CakeSession::init();

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
-  <?php echo $html->charset(); ?>
+  <?php echo $this->Html->charset(); ?>
   <title>
     <?php echo $title_for_layout; ?>
   </title>
@@ -27,7 +27,7 @@
 	</div>    
 	<div class="container_12">
 		<div class="grid_12 alpha">
-			<?php	echo $menu->setup($contents, array('type'=> 'tree', 'modelName'=>'Content', 'title'=>'title', 'depth' =>1, 'slugUrl' =>'path',  'selected' => $this->here)); 
+			<?php	echo $this->Menu->setup($contents, array('type'=> 'tree', 'modelName'=>'Content', 'title'=>'title', 'depth' =>1, 'slugUrl' =>'path',  'selected' => $this->request->here)); 
 			?>
 			
 		</div>

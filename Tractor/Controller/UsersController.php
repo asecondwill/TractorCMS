@@ -8,6 +8,8 @@
 *
 ********************************************************************************************************/
 App::uses('CakeEmail', 'Network/Email');
+App::uses('Security', 'Utility');
+      Security::setHash('md5');
 class UsersController extends AppController {
 
 	var $name = 'Users';
@@ -153,16 +155,16 @@ class UsersController extends AppController {
     	$content = $this->_getContent('users-change');
 		$this->_setStandardViewVars($content);
 		
-    	if (!empty($this->data)) {
+    	if (!empty($this->request->data)) {
     		$this->User->setValidation('password'); 
-    		$this->data['User']['id'] = $this->Auth->user('id');
-			if ($this->User->save($this->data)) {
+    		$this->request->data['User']['id'] = $this->Auth->user('id');
+			if ($this->User->save($this->request->data)) {
         	$this->Session->setFlash(__('Your password has been changed'),'default', array('class'=>'success'));
 			
 			//$this->redirect(array('action'=>'view', 'controller'=>'users',$this->Auth->user('id') ));
 			$this->redirect("/");
 			} else {
-				//$this->data['User']['password'] = '';
+				//$this->request->data['User']['password'] = '';
   	$this->Session->setFlash(__('There was a problem changing the password. Please check the form.'),'default', array('class'=>'fail'));
 			}
 		}
@@ -183,8 +185,8 @@ class UsersController extends AppController {
     function reset(){
     	
 			
-    	if ($this->data){
-    		$user = $this->User->findByEmail($this->data['User']['email']);
+    	if ($this->request->data){
+    		$user = $this->User->findByEmail($this->request->data['User']['email']);
 			
     		if ($user){
     		
@@ -239,16 +241,16 @@ class UsersController extends AppController {
 		
 		$user = $this->User->findById($id);
 		
-		if(isset($this->data['Contact']['email'])){
+		if(isset($this->request->data['Contact']['email'])){
 			
-	        $this->Contact->set($this->data);
+	        $this->Contact->set($this->request->data);
 	        if ($this->Contact->validates()) {
 	            //send email using the Email component
 	            $this->Email->to = $user['User']['email'];  
 	            $this->Email->subject = 'Contact message from ' . $this->current_user['User']['username'];  
-	            $this->Email->from = $this->data['Contact']['email'];  
+	            $this->Email->from = $this->request->data['Contact']['email'];  
 	   
-	            $this->Email->send($this->data['Contact']['message']);
+	            $this->Email->send($this->request->data['Contact']['message']);
 				$this->Session->setFlash(__('Your message has been sent'),'default', array('class'=>'success'));
 	            $this->redirect(array('action'=>'view', $id));
 	        }
@@ -256,10 +258,10 @@ class UsersController extends AppController {
 		}
 		
 
-		if (!empty($this->data) and isset($this->data['Link'])) {
+		if (!empty($this->request->data) and isset($this->request->data['Link'])) {
 
-			$this->data['Link']['user_id'] = $id;	
-			if ($this->User->Link->save($this->data)) {
+			$this->request->data['Link']['user_id'] = $id;	
+			if ($this->User->Link->save($this->request->data)) {
 				$this->Session->setFlash(__('The Link has been saved'));
 				$this->redirect(array('action'=>'view', $id));
 			} else {
@@ -295,10 +297,10 @@ class UsersController extends AppController {
 
 
 	function admin_add() {
-		if (!empty($this->data)) {
+		if (!empty($this->request->data)) {
 			
 			$this->User->create();
-			if ($this->User->save($this->data)) {
+			if ($this->User->save($this->request->data)) {
         	$this->Session->setFlash(__('Nice one! .'),'default', array('class'=>'success'));
 			
 			$this->redirect(array('action'=>'index'));
@@ -312,20 +314,20 @@ class UsersController extends AppController {
 
 	function admin_edit($id = null) {
 		$this->User->setValidation('basic'); 
-		if (!$id && empty($this->data)) {
+		if (!$id && empty($this->request->data)) {
 			$this->Session->setFlash(__('Invalid User'));
 			$this->redirect(array('action'=>'index'));
 		}
-		if (!empty($this->data)) {
-			if ($this->User->save($this->data)) {
+		if (!empty($this->request->data)) {
+			if ($this->User->save($this->request->data)) {
 				$this->Session->setFlash(__('The User has been saved'),	'default', array('class'=>'success'));
 				$this->redirect(array('action'=>'index'));
 			} else {
 				$this->Session->setFlash(__('The User could not be saved. Please, try again.'),	'default', array('class'=>'fail'));
 			}
 		}
-		if (empty($this->data)) {
-			$this->data = $this->User->read(null, $id);
+		if (empty($this->request->data)) {
+			$this->request->data = $this->User->read(null, $id);
 		}
 		$groups = $this->User->Group->find('list');
 		$this->set(compact('groups'));
@@ -333,20 +335,20 @@ class UsersController extends AppController {
 	
 	function admin_password($id = null) {
 		$this->User->setValidation('password'); 
-		if (!$id && empty($this->data)) {
+		if (!$id && empty($this->request->data)) {
 			$this->Session->setFlash(__('Invalid User'));
 			$this->redirect(array('action'=>'index'));
 		}
-		if (!empty($this->data)) {
-			if ($this->User->save($this->data)) {
+		if (!empty($this->request->data)) {
+			if ($this->User->save($this->request->data)) {
 				$this->Session->setFlash(__('The User has been saved'),	'default', array('class'=>'success'));
 				$this->redirect(array('action'=>'index'));
 			} else {
 				$this->Session->setFlash(__('The User could not be saved. Please, try again.'),	'default', array('class'=>'fail'));
 			}
 		}
-		if (empty($this->data)) {
-			$this->data = $this->User->read(null, $id);
+		if (empty($this->request->data)) {
+			$this->request->data = $this->User->read(null, $id);
 		}
 		
 	}
@@ -357,21 +359,21 @@ class UsersController extends AppController {
 		$this->_setStandardViewVars($content);
 		
 		$this->User->setValidation('basic'); 
-		if (!$id && empty($this->data)) {
+		if (!$id && empty($this->request->data)) {
 			$this->Session->setFlash(__('Invalid User'));
 			$this->redirect(array('action'=>'index'));
 		}
-		if (!empty($this->data)) {
+		if (!empty($this->request->data)) {
 			
-			if ($this->User->save($this->data)) {
+			if ($this->User->save($this->request->data)) {
 				$this->Session->setFlash(__('The User has been saved'),'default', array('class'=>'success'));
 				$this->redirect(array('action'=>'view', $id));
 			} else {
 				$this->Session->setFlash(__('The User could not be saved. Please, try again.'),'default', array('class'=>'fail'));
 			}
 		}
-		if (empty($this->data)) {
-			$this->data = $this->User->read(null, $id);
+		if (empty($this->request->data)) {
+			$this->request->data = $this->User->read(null, $id);
 		}
 		$groups = $this->User->Group->find('list');
 		$this->set(compact('groups'));
@@ -388,10 +390,10 @@ function holding() {
 		
 		$content = $this->_getContent('users-register');
 		$this->_setStandardViewVars($content);
-		if (!empty($this->data)) {
-			$this->data['User']['group_id'] = 8;
+		if (!empty($this->request->data)) {
+			$this->request->data['User']['group_id'] = 8;
 			$this->User->create();
-			if ($this->User->save($this->data)) {
+			if ($this->User->save($this->request->data)) {
         	$this->Session->setFlash(__('Nice one! Now go check your email and click the confirmation link we just sent you.'),'default', array('class'=>'success'));
 			$this->_sendConfirmation($this->User->findById($this->User->id));
 			$this->redirect(array("action"=>'holdingthanks', 'controller'=>'users'));
@@ -410,10 +412,10 @@ function register() {
 		$content = $this->_getContent('users-register');
 		$this->_setStandardViewVars($content);
 			
-		if (!empty($this->data)) {
-			$this->data['User']['group_id'] = 5;
+		if (!empty($this->request->data)) {
+			$this->request->data['User']['group_id'] = 5;
 			$this->User->create();
-			if ($this->User->save($this->data)) {
+			if ($this->User->save($this->request->data)) {
         	$this->Session->setFlash(__('Nice one! Now go check your email and click the confirmation link we just sent you.'),'default', array('class'=>'success'));
 			$this->_sendConfirmation($this->User->findById($this->User->id));
 			$this->redirect(array('action'=>'login', 'controller'=>'users'));
@@ -440,11 +442,11 @@ function register() {
 	function subscribe (){
 		$this->User->setValidation('basic'); 
 		
-		$user = $this->User->findByEmail($this->data['User']['email']);	
+		$user = $this->User->findByEmail($this->request->data['User']['email']);	
 		if (!$user){
 			$this->User->create();
-			if ($this->User->save($this->data)) ;
-			$user = $this->User->findByEmail($this->data['User']['email']);	
+			if ($this->User->save($this->request->data)) ;
+			$user = $this->User->findByEmail($this->request->data['User']['email']);	
 		}
 		
 			$this->Email->from    = configure::read('system.email');

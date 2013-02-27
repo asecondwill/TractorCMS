@@ -5,17 +5,19 @@
  * PHP 5
  *
  * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
- * Copyright 2005-2011, Cake Software Foundation, Inc.
+ * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
+ * For full copyright and license information, please see the LICENSE.txt
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright     Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  * @link          http://cakephp.org CakePHP(tm) Project
  * @since         CakePHP(tm) v 1.2
  * @license       MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 
+App::uses('AppShell', 'Console/Command');
 App::uses('BakeTask', 'Console/Command/Task');
 App::uses('AppModel', 'Model');
 
@@ -64,7 +66,7 @@ class ControllerTask extends BakeTask {
 			if (!isset($this->connection)) {
 				$this->connection = 'default';
 			}
-			if (strtolower($this->args[0]) == 'all') {
+			if (strtolower($this->args[0]) === 'all') {
 				return $this->all();
 			}
 
@@ -95,7 +97,7 @@ class ControllerTask extends BakeTask {
 	}
 
 /**
- * Bake All the controllers at once.  Will only bake controllers for models that exist.
+ * Bake All the controllers at once. Will only bake controllers for models that exist.
  *
  * @return void
  */
@@ -104,12 +106,22 @@ class ControllerTask extends BakeTask {
 		$this->listAll($this->connection, false);
 		ClassRegistry::config('Model', array('ds' => $this->connection));
 		$unitTestExists = $this->_checkUnitTest();
+
+		$admin = false;
+		if (!empty($this->params['admin'])) {
+			$admin = $this->Project->getPrefix();
+		}
+
 		foreach ($this->__tables as $table) {
 			$model = $this->_modelName($table);
 			$controller = $this->_controllerName($model);
 			App::uses($model, 'Model');
 			if (class_exists($model)) {
 				$actions = $this->bakeActions($controller);
+				if ($admin) {
+					$this->out(__d('cake_console', 'Adding %s methods', $admin));
+					$actions .= "\n" . $this->bakeActions($controller, $admin);
+				}
 				if ($this->bake($controller, $actions) && $unitTestExists) {
 					$this->bakeTest($controller);
 				}
@@ -125,7 +137,7 @@ class ControllerTask extends BakeTask {
 	protected function _interactive() {
 		$this->interactive = true;
 		$this->hr();
-		$this->out(__d('cake_console', "Bake Controller\nPath: %s", $this->path));
+		$this->out(__d('cake_console', "Bake Controller\nPath: %s", $this->getPath()));
 		$this->hr();
 
 		if (empty($this->connection)) {
@@ -144,20 +156,19 @@ class ControllerTask extends BakeTask {
 		$useDynamicScaffold = 'n';
 		$wannaBakeCrud = 'y';
 
-
 		$question[] = __d('cake_console', "Would you like to build your controller interactively?");
-		if (file_exists($this->path . $controllerName .'Controller.php')) {
+		if (file_exists($this->path . $controllerName . 'Controller.php')) {
 			$question[] = __d('cake_console', "Warning: Choosing no will overwrite the %sController.", $controllerName);
 		}
-		$doItInteractive = $this->in(implode("\n", $question), array('y','n'), 'y');
+		$doItInteractive = $this->in(implode("\n", $question), array('y', 'n'), 'y');
 
-		if (strtolower($doItInteractive) == 'y') {
+		if (strtolower($doItInteractive) === 'y') {
 			$this->interactive = true;
 			$useDynamicScaffold = $this->in(
-				__d('cake_console', "Would you like to use dynamic scaffolding?"), array('y','n'), 'n'
+				__d('cake_console', "Would you like to use dynamic scaffolding?"), array('y', 'n'), 'n'
 			);
 
-			if (strtolower($useDynamicScaffold) == 'y') {
+			if (strtolower($useDynamicScaffold) === 'y') {
 				$wannaBakeCrud = 'n';
 				$actions = 'scaffold';
 			} else {
@@ -174,12 +185,12 @@ class ControllerTask extends BakeTask {
 			list($wannaBakeCrud, $wannaBakeAdminCrud) = $this->_askAboutMethods();
 		}
 
-		if (strtolower($wannaBakeCrud) == 'y') {
-			$actions = $this->bakeActions($controllerName, null, strtolower($wannaUseSession) == 'y');
+		if (strtolower($wannaBakeCrud) === 'y') {
+			$actions = $this->bakeActions($controllerName, null, strtolower($wannaUseSession) === 'y');
 		}
-		if (strtolower($wannaBakeAdminCrud) == 'y') {
+		if (strtolower($wannaBakeAdminCrud) === 'y') {
 			$admin = $this->Project->getPrefix();
-			$actions .= $this->bakeActions($controllerName, $admin, strtolower($wannaUseSession) == 'y');
+			$actions .= $this->bakeActions($controllerName, $admin, strtolower($wannaUseSession) === 'y');
 		}
 
 		$baked = false;
@@ -187,7 +198,7 @@ class ControllerTask extends BakeTask {
 			$this->confirmController($controllerName, $useDynamicScaffold, $helpers, $components);
 			$looksGood = $this->in(__d('cake_console', 'Look okay?'), array('y','n'), 'y');
 
-			if (strtolower($looksGood) == 'y') {
+			if (strtolower($looksGood) === 'y') {
 				$baked = $this->bake($controllerName, $actions, $helpers, $components);
 				if ($baked && $this->_checkUnitTest()) {
 					$this->bakeTest($controllerName);
@@ -218,8 +229,8 @@ class ControllerTask extends BakeTask {
 		$this->hr();
 		$this->out(__d('cake_console', "Controller Name:\n\t%s", $controllerName));
 
-		if (strtolower($useDynamicScaffold) == 'y') {
-			$this->out("var \$scaffold;");
+		if (strtolower($useDynamicScaffold) === 'y') {
+			$this->out("public \$scaffold;");
 		}
 
 		$properties = array(
@@ -232,7 +243,7 @@ class ControllerTask extends BakeTask {
 				$output = '';
 				$length = count($$var);
 				foreach ($$var as $i => $propElement) {
-					if ($i != $length -1) {
+					if ($i != $length - 1) {
 						$output .= ucfirst($propElement) . ', ';
 					} else {
 						$output .= ucfirst($propElement);
@@ -349,7 +360,7 @@ class ControllerTask extends BakeTask {
 	public function doHelpers() {
 		return $this->_doPropertyChoices(
 			__d('cake_console', "Would you like this controller to use other helpers\nbesides HtmlHelper and FormHelper?"),
-			__d('cake_console', "Please provide a comma separated list of the other\nhelper names you'd like to use.\nExample: 'Ajax, Javascript, Time'")
+			__d('cake_console', "Please provide a comma separated list of the other\nhelper names you'd like to use.\nExample: 'Text, Js, Time'")
 		);
 	}
 
@@ -375,7 +386,7 @@ class ControllerTask extends BakeTask {
 	protected function _doPropertyChoices($prompt, $example) {
 		$proceed = $this->in($prompt, array('y','n'), 'n');
 		$property = array();
-		if (strtolower($proceed) == 'y') {
+		if (strtolower($proceed) === 'y') {
 			$propertyList = $this->in($example);
 			$propertyListTrimmed = str_replace(' ', '', $propertyList);
 			$property = explode(',', $propertyListTrimmed);
@@ -395,13 +406,14 @@ class ControllerTask extends BakeTask {
 		}
 		$this->__tables = $this->Model->getAllTables($useDbConfig);
 
-		if ($this->interactive == true) {
+		if ($this->interactive) {
 			$this->out(__d('cake_console', 'Possible Controllers based on your current database:'));
+			$this->hr();
 			$this->_controllerNames = array();
 			$count = count($this->__tables);
 			for ($i = 0; $i < $count; $i++) {
 				$this->_controllerNames[] = $this->_controllerName($this->_modelName($this->__tables[$i]));
-				$this->out($i + 1 . ". " . $this->_controllerNames[$i]);
+				$this->out(sprintf("%2d. %s", $i + 1, $this->_controllerNames[$i]));
 			}
 			return $this->_controllerNames;
 		}
@@ -418,20 +430,20 @@ class ControllerTask extends BakeTask {
 		$controllers = $this->listAll($useDbConfig);
 		$enteredController = '';
 
-		while ($enteredController == '') {
+		while (!$enteredController) {
 			$enteredController = $this->in(__d('cake_console', "Enter a number from the list above,\ntype in the name of another controller, or 'q' to exit"), null, 'q');
 			if ($enteredController === 'q') {
 				$this->out(__d('cake_console', 'Exit'));
 				return $this->_stop();
 			}
 
-			if ($enteredController == '' || intval($enteredController) > count($controllers)) {
+			if (!$enteredController || intval($enteredController) > count($controllers)) {
 				$this->err(__d('cake_console', "The Controller name you supplied was empty,\nor the number you selected was not an option. Please try again."));
 				$enteredController = '';
 			}
 		}
 
-		if (intval($enteredController) > 0 && intval($enteredController) <= count($controllers) ) {
+		if (intval($enteredController) > 0 && intval($enteredController) <= count($controllers)) {
 			$controllerName = $controllers[intval($enteredController) - 1];
 		} else {
 			$controllerName = Inflector::camelize($enteredController);
@@ -467,48 +479,4 @@ class ControllerTask extends BakeTask {
 			))->epilog(__d('cake_console', 'Omitting all arguments and options will enter into an interactive mode.'));
 	}
 
-/**
- * Displays help contents
- *
- * @return void
- */
-	public function help() {
-		$this->hr();
-		$this->out("Usage: cake bake controller <arg1> <arg2>...");
-		$this->hr();
-		$this->out('Arguments:');
-		$this->out();
-		$this->out("<name>");
-		$this->out("\tName of the controller to bake. Can use Plugin.name");
-		$this->out("\tas a shortcut for plugin baking.");
-		$this->out();
-		$this->out('Params:');
-		$this->out();
-		$this->out('-connection <config>');
-		$this->out("\tset db config <config>. uses 'default' if none is specified");
-		$this->out();
-		$this->out('Commands:');
-		$this->out();
-		$this->out("controller <name>");
-		$this->out("\tbakes controller with var \$scaffold");
-		$this->out();
-		$this->out("controller <name> public");
-		$this->out("\tbakes controller with basic crud actions");
-		$this->out("\t(index, view, add, edit, delete)");
-		$this->out();
-		$this->out("controller <name> admin");
-		$this->out("\tbakes a controller with basic crud actions for one of the");
-		$this->out("\tConfigure::read('Routing.prefixes') methods.");
-		$this->out();
-		$this->out("controller <name> public admin");
-		$this->out("\tbakes a controller with basic crud actions for one");
-		$this->out("\tConfigure::read('Routing.prefixes') and non admin methods.");
-		$this->out("\t(index, view, add, edit, delete,");
-		$this->out("\tadmin_index, admin_view, admin_edit, admin_add, admin_delete)");
-		$this->out();
-		$this->out("controller all");
-		$this->out("\tbakes all controllers with CRUD methods.");
-		$this->out();
-		$this->_stop();
-	}
 }

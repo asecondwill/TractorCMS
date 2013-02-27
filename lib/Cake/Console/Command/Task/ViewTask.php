@@ -5,17 +5,19 @@
  * PHP 5
  *
  * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
- * Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
+ * For full copyright and license information, please see the LICENSE.txt
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright     Copyright 2005-2011, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  * @link          http://cakephp.org CakePHP(tm) Project
  * @since         CakePHP(tm) v 1.2
  * @license       MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 
+App::uses('AppShell', 'Console/Command');
 App::uses('Controller', 'Controller');
 App::uses('BakeTask', 'Console/Command/Task');
 
@@ -62,7 +64,7 @@ class ViewTask extends BakeTask {
 	public $scaffoldActions = array('index', 'view', 'add', 'edit');
 
 /**
- * An array of action names that don't require templates.  These
+ * An array of action names that don't require templates. These
  * actions will not emit errors when doing bakeActions()
  *
  * @var array
@@ -98,7 +100,7 @@ class ViewTask extends BakeTask {
 		$this->controllerName = $this->_controllerName($this->args[0]);
 
 		$this->Project->interactive = false;
-		if (strtolower($this->args[0]) == 'all') {
+		if (strtolower($this->args[0]) === 'all') {
 			return $this->all();
 		}
 
@@ -132,7 +134,7 @@ class ViewTask extends BakeTask {
  * @return array Array of action names that should be baked
  */
 	protected function _methodsToBake() {
-		$methods =  array_diff(
+		$methods = array_diff(
 			array_map('strtolower', get_class_methods($this->controllerName . 'Controller')),
 			array_map('strtolower', get_class_methods('AppController'))
 		);
@@ -143,7 +145,7 @@ class ViewTask extends BakeTask {
 		}
 		$adminRoute = $this->Project->getPrefix();
 		foreach ($methods as $i => $method) {
-			if ($adminRoute && isset($this->params['admin'])) {
+			if ($adminRoute && !empty($this->params['admin'])) {
 				if ($scaffoldActions) {
 					$methods[$i] = $adminRoute . $method;
 					continue;
@@ -194,7 +196,7 @@ class ViewTask extends BakeTask {
  */
 	protected function _interactive() {
 		$this->hr();
-		$this->out(sprintf("Bake View\nPath: %s", $this->path));
+		$this->out(sprintf("Bake View\nPath: %s", $this->getPath()));
 		$this->hr();
 
 		$this->DbConfig->interactive = $this->Controller->interactive = $this->interactive = true;
@@ -206,25 +208,25 @@ class ViewTask extends BakeTask {
 		$this->Controller->connection = $this->connection;
 		$this->controllerName = $this->Controller->getName();
 
-		$prompt = __d('cake_console', "Would you like bake to build your views interactively?\nWarning: Choosing no will overwrite %s views if it exist.",  $this->controllerName);
+		$prompt = __d('cake_console', "Would you like bake to build your views interactively?\nWarning: Choosing no will overwrite %s views if it exist.", $this->controllerName);
 		$interactive = $this->in($prompt, array('y', 'n'), 'n');
 
-		if (strtolower($interactive) == 'n') {
+		if (strtolower($interactive) === 'n') {
 			$this->interactive = false;
 		}
 
 		$prompt = __d('cake_console', "Would you like to create some CRUD views\n(index, add, view, edit) for this controller?\nNOTE: Before doing so, you'll need to create your controller\nand model classes (including associated models).");
-		$wannaDoScaffold = $this->in($prompt, array('y','n'), 'y');
+		$wannaDoScaffold = $this->in($prompt, array('y', 'n'), 'y');
 
-		$wannaDoAdmin = $this->in(__d('cake_console', "Would you like to create the views for admin routing?"), array('y','n'), 'n');
+		$wannaDoAdmin = $this->in(__d('cake_console', "Would you like to create the views for admin routing?"), array('y', 'n'), 'n');
 
-		if (strtolower($wannaDoScaffold) == 'y' || strtolower($wannaDoAdmin) == 'y') {
+		if (strtolower($wannaDoScaffold) === 'y' || strtolower($wannaDoAdmin) === 'y') {
 			$vars = $this->_loadController();
-			if (strtolower($wannaDoScaffold) == 'y') {
+			if (strtolower($wannaDoScaffold) === 'y') {
 				$actions = $this->scaffoldActions;
 				$this->bakeActions($actions, $vars);
 			}
-			if (strtolower($wannaDoAdmin) == 'y') {
+			if (strtolower($wannaDoAdmin) === 'y') {
 				$admin = $this->Project->getPrefix();
 				$regularActions = $this->scaffoldActions;
 				$adminActions = array();
@@ -291,7 +293,7 @@ class ViewTask extends BakeTask {
 		$pluralHumanName = $this->_pluralHumanName($this->controllerName);
 
 		return compact('modelClass', 'schema', 'primaryKey', 'displayField', 'singularVar', 'pluralVar',
-				'singularHumanName', 'pluralHumanName', 'fields','associations');
+				'singularHumanName', 'pluralHumanName', 'fields', 'associations');
 	}
 
 /**
@@ -315,9 +317,9 @@ class ViewTask extends BakeTask {
  */
 	public function customAction() {
 		$action = '';
-		while ($action == '') {
+		while (!$action) {
 			$action = $this->in(__d('cake_console', 'Action Name? (use lowercase_underscored function name)'));
-			if ($action == '') {
+			if (!$action) {
 				$this->out(__d('cake_console', 'The action name you supplied was empty. Please try again.'));
 			}
 		}
@@ -327,10 +329,10 @@ class ViewTask extends BakeTask {
 		$this->hr();
 		$this->out(__d('cake_console', 'Controller Name: %s', $this->controllerName));
 		$this->out(__d('cake_console', 'Action Name:     %s', $action));
-		$this->out(__d('cake_console', 'Path:            %s', $this->params['app'] . DS . 'View' . DS . $this->controllerName . DS . Inflector::underscore($action) . ".ctp"));
+		$this->out(__d('cake_console', 'Path:            %s', $this->getPath() . $this->controllerName . DS . Inflector::underscore($action) . ".ctp"));
 		$this->hr();
-		$looksGood = $this->in(__d('cake_console', 'Look okay?'), array('y','n'), 'y');
-		if (strtolower($looksGood) == 'y') {
+		$looksGood = $this->in(__d('cake_console', 'Look okay?'), array('y', 'n'), 'y');
+		if (strtolower($looksGood) === 'y') {
 			$this->bake($action, ' ');
 			$this->_stop();
 		} else {
@@ -393,6 +395,10 @@ class ViewTask extends BakeTask {
 		if (!empty($this->template) && $action != $this->template) {
 			return $this->template;
 		}
+		$themePath = $this->Template->getThemePath();
+		if (file_exists($themePath . 'views' . DS . $action . '.ctp')) {
+			return $action;
+		}
 		$template = $action;
 		$prefixes = Configure::read('Routing.prefixes');
 		foreach ((array)$prefixes as $prefix) {
@@ -418,7 +424,7 @@ class ViewTask extends BakeTask {
 		return $parser->description(
 			__d('cake_console', 'Bake views for a controller, using built-in or custom templates.')
 		)->addArgument('controller', array(
-			'help' => __d('cake_console', 'Name of the controller views to bake.  Can be Plugin.name as a shortcut for plugin baking.')
+			'help' => __d('cake_console', 'Name of the controller views to bake. Can be Plugin.name as a shortcut for plugin baking.')
 		))->addArgument('action', array(
 			'help' => __d('cake_console', "Will bake a single action's file. core templates are (index, add, edit, view)")
 		))->addArgument('alias', array(
@@ -443,20 +449,21 @@ class ViewTask extends BakeTask {
  * @param Model $model
  * @return array $associations
  */
-	protected function _associations($model) {
+	protected function _associations(Model $model) {
 		$keys = array('belongsTo', 'hasOne', 'hasMany', 'hasAndBelongsToMany');
 		$associations = array();
 
-		foreach ($keys as $key => $type) {
+		foreach ($keys as $type) {
 			foreach ($model->{$type} as $assocKey => $assocData) {
-				list($plugin, $modelClass) = pluginSplit($assocData['className']);
+				list(, $modelClass) = pluginSplit($assocData['className']);
 				$associations[$type][$assocKey]['primaryKey'] = $model->{$assocKey}->primaryKey;
 				$associations[$type][$assocKey]['displayField'] = $model->{$assocKey}->displayField;
 				$associations[$type][$assocKey]['foreignKey'] = $assocData['foreignKey'];
 				$associations[$type][$assocKey]['controller'] = Inflector::pluralize(Inflector::underscore($modelClass));
-				$associations[$type][$assocKey]['fields'] =  array_keys($model->{$assocKey}->schema(true));
+				$associations[$type][$assocKey]['fields'] = array_keys($model->{$assocKey}->schema(true));
 			}
 		}
 		return $associations;
 	}
+
 }

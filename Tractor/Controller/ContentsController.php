@@ -81,9 +81,9 @@ class ContentsController extends AppController {
 	
 	function admin_add($class_name = null, $action_name = null){
 
-		if (!empty($this->data)) {
+		if (!empty($this->request->data)) {
 			$this->Content->create();
-			if ($this->Content->save($this->data)) {
+			if ($this->Content->save($this->request->data)) {
 				$this->Session->setFlash(sprintf(__('The %s has been saved'), 'Content'));
 				$this->redirect(array('action' => 'index'));
 			} else {
@@ -92,14 +92,14 @@ class ContentsController extends AppController {
 		}
 		
 		if ($class_name){
-			$this->data['Content']['class_name'] = $class_name;
+			$this->request->data['Content']['class_name'] = $class_name;
 		}
 		if ($action_name){
-			$this->data['Content']['action_name'] = $action_name;
+			$this->request->data['Content']['action_name'] = $action_name;
 		}
 
 		
-		$content_options = $this->Content->generatetreelist();
+		$content_options = $this->Content->generateTreeList();
 
 		$this->set(compact( 'content_options'));
 
