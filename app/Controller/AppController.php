@@ -20,15 +20,15 @@ class AppController extends Controller {
 		
 		
 		
-		App::import('Model', 'Menu');	
-		$Menu = new Menu;
+	
+		$Menu = ClassRegistry::init('Menu'); 
 		$Menu->recursive   = -1;
 		$menus=$Menu->find('all');
 		$this->set('menus_for_admin', $menus);
 		
 		
-		App::import('Model', 'Content');	
-		$Content = new Content;
+	
+		$Content = ClassRegistry::init('Content'); 
 		$contents = $Content->find('threaded', array(
 			'fields' => array('id', 'title', 'path', 'slug',  'lft', 'rght', 'parent_id'), 
 			'order' => 'lft ASC'
@@ -42,7 +42,7 @@ class AppController extends Controller {
 	
 	 function beforeFilter() { 
     	
-    	//$this->Auth->allow();
+    	$this->Auth->allow();
     	
 		$this->Auth->authorize = array('Controller');
   

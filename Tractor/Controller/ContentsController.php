@@ -99,7 +99,7 @@ class ContentsController extends AppController {
 		}
 
 		
-		$content_options = $this->Content->generatetreelist();
+		$content_options = $this->Content->generateTreeList();
 
 		$this->set(compact( 'content_options'));
 

@@ -889,7 +889,7 @@ class RevisionBehavior extends ModelBehavior {
 	 * @param object $Model
 	 * @return boolean
 	 */
-	public function beforeDelete(Model $Model) {
+	public function beforeDelete(Model $model, $cascade = true) {
 		if ($this->settings[$Model->alias]['auto'] === false) {
 			return true;
 		}		
@@ -953,7 +953,7 @@ class RevisionBehavior extends ModelBehavior {
 		} else {
 			$dbConfig = $this->settings[$Model->alias]['useDbConfig'];			
 		}
-		$db = & ConnectionManager::getDataSource($dbConfig);
+		$db =  ConnectionManager::getDataSource($dbConfig);
 		if ($Model->useTable) {
 		  $shadow_table = $Model->useTable;	
 		} else {

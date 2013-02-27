@@ -106,7 +106,7 @@ class User extends AppModel {
 	 }
  
  
-    function beforeSave()  
+    function beforeSave($options = array())  
     {  
 	
      $this->data['User']['password'] = AuthComponent::password($this->data['User']['password']);   

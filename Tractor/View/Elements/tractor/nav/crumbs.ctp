@@ -16,5 +16,5 @@ if(isset($path)){
 		}	 
 	}
 }else{
-	echo " > " . $title;
+	echo " > " . $this->fetch('title');
 }

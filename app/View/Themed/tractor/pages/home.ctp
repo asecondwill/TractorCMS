@@ -1,7 +1,7 @@
 
 <article>
 
-	<?php echo $page['Page']['body']?>
+	<?php echo $content['Page']['body']?>
 </article>
 
 

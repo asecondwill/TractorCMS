@@ -46,7 +46,7 @@
 		<td><?php // echo ($page['Page']['metatitle']); ?>&nbsp; </td>
 		<td class="actions">
 			<?php echo $this->Html->image('admin/application_edit.png',  array('alt'=>'edit', 'url' => array('action'=> 'edit', $page['Page']['id']))); ?>
-			<? echo $this->Html->link($this->Html->image('admin/trash.gif'), 
+			<?php echo $this->Html->link($this->Html->image('admin/trash.gif'), 
 				array('escape'=>false, 
 					  'action' => 'delete', 
 					   $page['Page']['id']

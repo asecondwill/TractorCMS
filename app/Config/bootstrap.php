@@ -85,16 +85,24 @@ Cache::config('default', array('engine' => 'File'));
  * CakePlugin::load('DebugKit'); //Loads a single plugin named DebugKit
  *
  */
+ 
  define('TRACTOR', ROOT.DS.'Tractor');
  	
  CakePlugin::loadAll(array(
     array('bootstrap' => true),
     'DebugKit' => array('bootstrap'=>false),
-    'AssetCompress' => array('bootstrap'=>false),
+  //  'AssetCompress' => array('bootstrap'=>false),
     'Tags' => array('bootstrap'=>false),
     'Install' => array('bootstrap'=> false)
 ));
- 
+
+ Configure::write('Dispatcher.filters', array(
+    'AssetDispatcher',
+    'CacheDispatcher'
+));
+CakePlugin::load('AssetCompress', array('bootstrap' => true));
+
+
  // Load Install plugin
 if (!file_exists(APP . 'Config' . DS.'tractor_settings.php')) {
     CakePlugin::load('Install', array('bootstrap'=>false));
