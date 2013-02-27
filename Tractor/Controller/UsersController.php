@@ -8,6 +8,8 @@
 *
 ********************************************************************************************************/
 App::uses('CakeEmail', 'Network/Email');
+App::uses('Security', 'Utility');
+      Security::setHash('md5');
 class UsersController extends AppController {
 
 	var $name = 'Users';

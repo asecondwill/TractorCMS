@@ -42,7 +42,7 @@ class AppController extends Controller {
 	
 	 function beforeFilter() { 
     	
-    	$this->Auth->allow();
+    	//$this->Auth->allow();
     	
 		$this->Auth->authorize = array('Controller');
   

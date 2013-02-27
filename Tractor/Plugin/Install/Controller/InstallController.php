@@ -2,7 +2,7 @@
 App::uses('Security', 'Utility');
 class InstallController extends Controller {
 	public $uses = null;
-	public $components = array('Session','Auth');
+	public $components = array('Session');
 
     public $defaultConfig = array(
         'name' => 'default',
@@ -127,10 +127,10 @@ class InstallController extends Controller {
 		        }
 		
 		        // set new password for admin, hashed according to new salt value
-		         
+		         Security::setHash('md5');
 		        $User = ClassRegistry::init('User');
 		        $user = array('User'=>array(
-		        	'password'	=>	Security::hash($this->request->data['Install']['password'], null, $salt), 
+		        	'password'	=>	Security::hash($this->request->data['Install']['password']), 
 		        	'email'		=>	$this->request->data['Install']['email'],
 		        	'first_name'		=>	$this->request->data['Install']['first_name'],
 		        	'last_name'		=>	$this->request->data['Install']['last_name'],
